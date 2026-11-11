@@ -1,0 +1,35 @@
+# Firebase App Hosting configuration for MO Cafe & Villa – Operations.
+# Secrets are NOT stored here: they live in Cloud Secret Manager and are referenced by name.
+# Set them with:  firebase apphosting:secrets:set <name>
+
+runConfig:
+  # One instance: the fast in-memory cache in SheetsStore is per server, so a single
+  # instance guarantees every user sees a save immediately. Plenty for a small cafe.
+  minInstances: 0   # 0 = scales to zero when idle (free, but first request after idle is slower). Set 1 to keep it warm.
+  maxInstances: 1
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 512
+
+env:
+  - variable: DATA_BACKEND
+    value: sheets
+  - variable: GOOGLE_SHEET_ID
+    value: 17WZm1xvPyjg6o4B6RkjjJpByzhnO0qvTVOkgeL8w_fU
+  - variable: GOOGLE_SERVICE_ACCOUNT_EMAIL
+    value: mo-cafe-villa@mo-villa-and-cafe.iam.gserviceaccount.com
+  - variable: GOOGLE_CLIENT_ID
+    value: 398381150316-shhuq6j195khilanldmb1ttn8vtghtiv.apps.googleusercontent.com
+  - variable: BOOTSTRAP_PARTNER_EMAILS
+    value: rajitha93725@gmail.com
+  # Public URL of the deployed app (used by Google sign-in). Update after the first deploy if it differs.
+  - variable: NEXTAUTH_URL
+    value: https://REPLACE_WITH_APP_URL
+
+  # ---- secrets (Cloud Secret Manager) ----
+  - variable: GOOGLE_PRIVATE_KEY
+    secret: mo-google-private-key
+  - variable: GOOGLE_CLIENT_SECRET
+    secret: mo-google-client-secret
+  - variable: NEXTAUTH_SECRET
+    secret: mo-nextauth-secret
