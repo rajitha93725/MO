@@ -15,10 +15,10 @@
   },
   "dependencies": {
     "google-auth-library": "9.15.1",
-    "next": "15.5.4",
-    "next-auth": "4.24.11",
-    "react": "19.1.1",
-    "react-dom": "19.1.1",
+    "next": "15.5.29",
+    "next-auth": "4.24.15",
+    "react": "19.1.10",
+    "react-dom": "19.1.10",
     "recharts": "2.15.4",
     "server-only": "^0.0.1"
   },
