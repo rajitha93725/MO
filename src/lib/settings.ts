@@ -1,4 +1,4 @@
-import type { Partner, Settings, SettingRow, TargetPeriod, VillaPlatform, VillaRoom } from "./types";
+import type { MenuCategory, Partner, Settings, SettingRow, TargetPeriod, VillaPlatform, VillaRoom } from "./types";
 
 /**
  * Default Settings rows. These are written to the Settings tab by the setup script
@@ -39,7 +39,25 @@ export const DEFAULT_SETTING_ROWS: SettingRow[] = [
   },
   { key: "villa_allocation", value: "nights", description: "nights = split revenue across months by nights stayed; check_in = count it all in the check-in month" },
   { key: "villa_partners", value: "Rajitha:100", description: "Villa profit split, Name:percent (must total 100). Cafe profit uses 'partners'" },
+  { key: "menu_categories", value: "Brunch:B,All Day Menu:A,Beverage:D", description: "Menu categories in display order as Name:ID letter (new items get IDs like B12). The first one opens by default at breakfast" },
+  { key: "receipt_name", value: "MO Cafe", description: "Receipt: name printed at the top" },
+  { key: "receipt_address", value: "", description: "Receipt: address / phone line under the name (optional)" },
+  { key: "receipt_footer", value: "Thank you! Come again", description: "Receipt: line printed at the bottom" },
+  { key: "receipt_width_mm", value: "80", description: "Receipt paper width in mm (80 or 58 for receipt printers)" },
 ];
+
+/** "Brunch:B,All Day Menu:A" -> [{ name: "Brunch", prefix: "B" }, …]. Names may not contain ":" or ",". */
+export function parseMenuCategories(s: string): MenuCategory[] {
+  const out = list(s).map((part) => {
+    const [name, prefix] = part.split(":").map((x) => (x ?? "").trim());
+    if (!name || !/^[A-Za-z]$/.test(prefix ?? "")) throw new Error(`menu_categories: "${part}" must look like Name:Letter (e.g. Brunch:B)`);
+    return { name, prefix: prefix.toUpperCase() };
+  });
+  if (!out.length) throw new Error("menu_categories: add at least one category");
+  if (new Set(out.map((c) => c.prefix)).size !== out.length) throw new Error("menu_categories: each category needs its own letter");
+  if (new Set(out.map((c) => c.name.toLowerCase())).size !== out.length) throw new Error("menu_categories: category names must be unique");
+  return out;
+}
 
 export const DEFAULT_TARGETS: TargetPeriod[] = [
   {
@@ -162,6 +180,11 @@ export function parseSettings(rows: SettingRow[], targets: TargetPeriod[]): Sett
     villa_cost_categories: parseCategoryList(g("villa_cost_categories")),
     villa_allocation: g("villa_allocation") === "check_in" ? "check_in" : "nights",
     villa_partners: villaPartners,
+    menu_categories: parseMenuCategories(g("menu_categories")),
+    receipt_name: g("receipt_name"),
+    receipt_address: g("receipt_address"),
+    receipt_footer: g("receipt_footer"),
+    receipt_width_mm: Math.min(210, Math.max(40, toNum(g("receipt_width_mm"), "receipt_width_mm"))),
   };
 }
 

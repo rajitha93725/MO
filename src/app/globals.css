@@ -261,3 +261,22 @@ table.cal td.cal-booked a { display: flex; align-items: center; justify-content:
   .report-section h2 { break-after: avoid; }
   table { font-size: 10pt; }
 }
+
+/* ---------- receipt ---------- */
+.receipt {
+  box-sizing: border-box; align-self: center; max-width: 100%; margin: 0 auto; padding: 12px; background: #fff; color: #000;
+  border: 1px dashed var(--border); border-radius: 6px;
+  font: 13px/1.35 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+.receipt table { width: 100%; border-collapse: collapse; }
+.receipt td { padding: 3px 0; vertical-align: top; border: 0; color: #000; }
+.receipt .num { text-align: right; white-space: nowrap; padding-left: 8px; }
+.receipt .r-center { text-align: center; }
+.receipt .r-title { font-size: 17px; font-weight: 700; letter-spacing: 0.04em; }
+.receipt .r-rule { border-top: 1px dashed #000; margin: 6px 0; }
+.receipt .r-row { display: flex; justify-content: space-between; gap: 8px; }
+.receipt .r-total { font-weight: 700; font-size: 15px; }
+.receipt .r-small { font-size: 11px; color: #333; }
+@media print {
+  .receipt { border: 0; padding: 0; border-radius: 0; }
+}

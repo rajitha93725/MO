@@ -28,6 +28,14 @@ export interface MenuItem {
   unit_cost: number;
   selling_price: number;
   active: boolean;
+  /** Shown on the menu page (optional). */
+  description: string;
+}
+
+/** A menu category and the letter used for its item IDs (Settings: menu_categories). */
+export interface MenuCategory {
+  name: string;
+  prefix: string;
 }
 
 export interface PriceHistory {
@@ -207,6 +215,13 @@ export interface Settings {
   villa_allocation: VillaAllocation;
   /** Who shares villa profit (cafe profit uses `partners`). */
   villa_partners: Partner[];
+  /** Menu categories in display order, with their item ID prefix. */
+  menu_categories: MenuCategory[];
+  /** Receipt header and footer lines. */
+  receipt_name: string;
+  receipt_address: string;
+  receipt_footer: string;
+  receipt_width_mm: number;
 }
 
 /** Raw key/value row of the Settings tab. */

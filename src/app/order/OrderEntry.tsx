@@ -1,25 +1,45 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { saveOrder } from "@/app/actions";
 import { useAction } from "@/components/ui";
 import { MEALS, PAYMENT_METHODS, type Meal, type MenuItem, type PaymentMethod } from "@/lib/types";
 
 const rs = (n: number) => `Rs ${Math.round(n).toLocaleString("en-US")}`;
 
-export function OrderEntry({ menu, today, defaultMeal }: { menu: MenuItem[]; today: string; defaultMeal: Meal }) {
+const PRINT_KEY = "mo.printReceipt";
+
+export function OrderEntry({ menu, today, defaultMeal, categories: settingCats }: { menu: MenuItem[]; today: string; defaultMeal: Meal; categories: string[] }) {
+  const router = useRouter();
+  // Settings order first; then any category in use but not listed in Settings.
+  const categories = useMemo(
+    () => [...settingCats.filter((c) => menu.some((m) => m.category === c)), ...Array.from(new Set(menu.map((m) => m.category))).filter((c) => !settingCats.includes(c))],
+    [menu, settingCats],
+  );
   const [meal, setMeal] = useState<Meal>(defaultMeal);
   const [pay, setPay] = useState<PaymentMethod>("Cash");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState("");
   const [date, setDate] = useState(today);
-  const [cat, setCat] = useState<string>(defaultMeal === "Breakfast" ? "Breakfast" : "All day dining");
+  // Breakfast opens the first category (e.g. Brunch); other meals open the second one if there is one.
+  const [cat, setCat] = useState<string>((defaultMeal === "Breakfast" ? categories[0] : categories[1] ?? categories[0]) ?? "");
+  const [printAfter, setPrintAfter] = useState(true);
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem(PRINT_KEY);
+      if (v !== null) setPrintAfter(v === "1");
+    } catch {}
+  }, []);
+  const togglePrint = (v: boolean) => {
+    setPrintAfter(v);
+    try { localStorage.setItem(PRINT_KEY, v ? "1" : "0"); } catch {}
+  };
   const [sub, setSub] = useState<string>("");
   const [query, setQuery] = useState("");
   const [showCart, setShowCart] = useState(false);
   const { pending, call, ui } = useAction();
 
-  const categories = useMemo(() => Array.from(new Set(menu.map((m) => m.category))), [menu]);
   const subs = useMemo(() => Array.from(new Set(menu.filter((m) => m.category === cat).map((m) => m.sub_category))), [menu, cat]);
   const shown = menu.filter((m) =>
     query ? `${m.item_name} ${m.sub_category}`.toLowerCase().includes(query.toLowerCase()) : m.category === cat && (!sub || m.sub_category === sub),
@@ -36,10 +56,11 @@ export function OrderEntry({ menu, today, defaultMeal }: { menu: MenuItem[]; tod
   const submit = () =>
     call(
       () => saveOrder({ meal, payment_method: pay, notes, date, lines: lines.map((l) => ({ item_id: l.item.item_id, qty: l.qty })) }),
-      () => {
+      (r) => {
         setCart({});
         setNotes("");
         setShowCart(false);
+        if (printAfter && r.id) router.push(`/receipt/${encodeURIComponent(r.id)}?print=1`);
       },
     );
 
@@ -107,6 +128,7 @@ export function OrderEntry({ menu, today, defaultMeal }: { menu: MenuItem[]; tod
                 </div>
               ))}
               <input placeholder="Notes (table, guest, discount reason…)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+              <label className="row small"><input type="checkbox" checked={printAfter} onChange={(e) => togglePrint(e.target.checked)} /> Print receipt after saving</label>
               <div className="seg" role="group" aria-label="Payment method">
                 {PAYMENT_METHODS.map((p) => (
                   <button key={p} type="button" className={pay === p ? "on" : ""} aria-pressed={pay === p} onClick={() => setPay(p)}>{p}</button>

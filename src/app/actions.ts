@@ -15,11 +15,11 @@ import { commissionFor, findOverlaps, netPayoutFor, nightsBetween } from "@/lib/
 
 export type ActionResult = { ok: true; message?: string; id?: string } | { ok: false; errors: string[] };
 
-async function run(fn: () => Promise<string | void>, paths: string[] = ["/"]): Promise<ActionResult> {
+async function run(fn: () => Promise<string | void | { message: string; id: string }>, paths: string[] = ["/"]): Promise<ActionResult> {
   try {
-    const message = (await fn()) ?? undefined;
+    const r = (await fn()) ?? undefined;
     for (const p of paths) revalidatePath(p, "layout");
-    return { ok: true, message };
+    return typeof r === "object" ? { ok: true, message: r.message, id: r.id } : { ok: true, message: r };
   } catch (e) {
     if (e instanceof ValidationError) return { ok: false, errors: e.errors };
     return { ok: false, errors: [e instanceof Error ? e.message : String(e)] };
@@ -67,7 +67,7 @@ export async function saveOrder(input: OrderInput): Promise<ActionResult> {
     });
     await repo.insert("orders", rows);
     const total = rows.reduce((t, r) => t + r.line_total, 0);
-    return `Order saved · Rs ${total.toLocaleString("en-US")}`;
+    return { message: `Order saved · Rs ${total.toLocaleString("en-US")}`, id: order_id };
   });
 }
 
@@ -126,12 +126,13 @@ export async function saveMenuItem(form: Record<string, string>): Promise<Action
     const v = new V();
     const item: MenuItem = {
       item_id: (form.item_id || "").trim(),
-      category: v.oneOf("Category", form.category, ["Breakfast", "All day dining", "Drinks"] as const),
+      category: v.oneOf("Category", form.category, settings.menu_categories.map((c) => c.name)),
       sub_category: v.required("Sub-category", form.sub_category),
       item_name: v.required("Item name", form.item_name),
       unit_cost: v.amount("Unit cost", form.unit_cost),
       selling_price: v.amount("Selling price", form.selling_price, { allowZero: false }),
       active: form.active !== "no",
+      description: (form.description ?? "").trim(),
     };
     v.done();
     const menu = await repo.menu();
@@ -147,7 +148,7 @@ export async function saveMenuItem(form: Record<string, string>): Promise<Action
       await repo.update("menu", item.item_id, item);
       return "Item updated";
     }
-    const prefix = item.category === "Breakfast" ? "B" : item.category === "Drinks" ? "D" : "A";
+    const prefix = settings.menu_categories.find((c) => c.name === item.category)!.prefix;
     const max = menu.filter((m) => m.item_id.startsWith(prefix)).map((m) => Number(m.item_id.slice(1)) || 0).reduce((a, b) => Math.max(a, b), 0);
     item.item_id = `${prefix}${String(max + 1).padStart(2, "0")}`;
     await repo.insert("menu", [item]);

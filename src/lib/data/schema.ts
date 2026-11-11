@@ -21,7 +21,7 @@ export const TABS = {
 export type TabKey = keyof typeof TABS;
 
 export const HEADERS: Record<TabKey, string[]> = {
-  menu: ["item_id", "category", "sub_category", "item_name", "unit_cost", "selling_price", "active"],
+  menu: ["item_id", "category", "sub_category", "item_name", "unit_cost", "selling_price", "active", "description"],
   priceHistory: ["history_id", "item_id", "effective_date", "old_cost", "old_price", "new_cost", "new_price", "changed_by"],
   orders: [
     "order_id", "date", "time", "meal", "item_id", "item_name", "qty", "unit_price", "line_total",

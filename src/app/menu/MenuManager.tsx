@@ -8,9 +8,9 @@ import { HEADERS } from "@/lib/data/schema";
 import type { MenuItem, PriceHistory } from "@/lib/types";
 
 const n = (v: number) => Math.round(v).toLocaleString("en-US");
-const CATS = ["Breakfast", "All day dining", "Drinks"];
-
-export function MenuManager({ menu, history, target, isPartner }: { menu: MenuItem[]; history: PriceHistory[]; target: number; isPartner: boolean }) {
+export function MenuManager({ menu, history, target, isPartner, categories }: { menu: MenuItem[]; history: PriceHistory[]; target: number; isPartner: boolean; categories: string[] }) {
+  // Settings order first, then any category used in the sheet but not listed in Settings.
+  const CATS = [...categories, ...Array.from(new Set(menu.map((m) => m.category))).filter((c) => !categories.includes(c))];
   const [editing, setEditing] = useState<MenuItem | "new" | null>(null);
   const [showInactive, setShowInactive] = useState(false);
   const [onlyHigh, setOnlyHigh] = useState(false);
@@ -48,10 +48,11 @@ export function MenuManager({ menu, history, target, isPartner }: { menu: MenuIt
           <b className="full">{editing === "new" ? "New item" : `Edit ${editing.item_name}`}</b>
           <input type="hidden" name="item_id" defaultValue={editing === "new" ? "" : editing.item_id} />
           <label className="field"><span>Category</span>
-            <select name="category" defaultValue={editing === "new" ? "Breakfast" : editing.category}>{CATS.map((c) => <option key={c}>{c}</option>)}</select>
+            <select name="category" defaultValue={editing === "new" ? categories[0] : editing.category}>{categories.map((c) => <option key={c}>{c}</option>)}</select>
           </label>
           <label className="field"><span>Sub-category</span><input name="sub_category" required defaultValue={editing === "new" ? "" : editing.sub_category} /></label>
           <label className="field full"><span>Item name</span><input name="item_name" required defaultValue={editing === "new" ? "" : editing.item_name} /></label>
+          <label className="field full"><span>Description (optional)</span><textarea name="description" rows={2} defaultValue={editing === "new" ? "" : editing.description} /></label>
           <label className="field"><span>Unit cost (Rs)</span><input name="unit_cost" type="number" inputMode="numeric" min={0} step={1} required defaultValue={editing === "new" ? "" : editing.unit_cost} /></label>
           <label className="field"><span>Selling price (Rs)</span><input name="selling_price" type="number" inputMode="numeric" min={1} step={1} required defaultValue={editing === "new" ? "" : editing.selling_price} /></label>
           <label className="field"><span>Active</span>
@@ -83,6 +84,7 @@ export function MenuManager({ menu, history, target, isPartner }: { menu: MenuIt
                       <div key={m.item_id} className={`menu-card ${st.aboveTarget ? "high" : ""} ${m.active ? "" : "inactive"}`}>
                         <div style={{ minWidth: 0 }}>
                           <div className="name">{m.item_name} {!m.active && <span className="badge">inactive</span>}</div>
+                          {m.description && <div className="small" style={{ color: "var(--text-2)" }}>{m.description}</div>}
                           <div className="small muted">{m.item_id} · cost Rs {n(m.unit_cost)} · profit Rs {n(st.profit)}</div>
                           {hist.length > 0 && (
                             <details className="small muted">

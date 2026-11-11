@@ -7,8 +7,8 @@ import type { CashMovement, MenuItem, VillaRecord } from "../src/lib/types";
 
 const s = settings();
 const menu: MenuItem[] = [
-  { item_id: "A01", category: "All day dining", sub_category: "", item_name: "Rice & curry", unit_cost: 400, selling_price: 1000, active: true },
-  { item_id: "D01", category: "Drinks", sub_category: "", item_name: "Lime juice", unit_cost: 100, selling_price: 500, active: true },
+  { item_id: "A01", category: "All day dining", sub_category: "", item_name: "Rice & curry", unit_cost: 400, selling_price: 1000, active: true, description: "" },
+  { item_id: "D01", category: "Drinks", sub_category: "", item_name: "Lime juice", unit_cost: 100, selling_price: 500, active: true, description: "" },
 ];
 const L = (o: string, date: string, item: "A01" | "D01", qty: number, extra: Partial<Parameters<typeof order>[0]> = {}) => {
   const m = menu.find((x) => x.item_id === item)!;

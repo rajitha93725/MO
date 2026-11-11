@@ -12,7 +12,8 @@ export default async function OrderPage() {
     // Suggest the meal from the clock in the cafe's timezone.
     const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: settings.timezone, hour: "2-digit", hour12: false }).format(new Date()));
     const meal = hour < 11 ? "Breakfast" : hour < 17 ? "Lunch" : "Dinner";
-    return <OrderEntry menu={menu.filter((m) => m.active)} today={t} defaultMeal={meal} />;
+    const categories = settings.menu_categories.map((c) => c.name);
+    return <OrderEntry menu={menu.filter((m) => m.active)} today={t} defaultMeal={meal} categories={categories} />;
   } catch (e) {
     return <StorageError error={e} />;
   }

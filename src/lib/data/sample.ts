@@ -23,10 +23,12 @@ export interface SampleData {
 export function buildSample(menu: MenuItem[], monthlyFixed: FixedCost[], from = "2026-12-01", to = "2027-01-20"): SampleData {
   const r = rng(42);
   const pick = <T,>(a: T[]) => a[Math.floor(r() * a.length)];
-  const byCat = (c: string) => menu.filter((m) => m.category === c);
-  const breakfast = byCat("Breakfast");
-  const food = byCat("All day dining");
-  const drinks = byCat("Drinks");
+  // Demo data uses the default categories: first = brunch, second = all day food, last = drinks.
+  const cats = Array.from(new Set(menu.map((m) => m.category)));
+  const byCat = (c: string | undefined) => menu.filter((m) => m.category === c);
+  const breakfast = byCat(cats[0]);
+  const food = byCat(cats[1] ?? cats[0]);
+  const drinks = byCat(cats.at(-1));
 
   const orders: OrderLine[] = [];
   const dailyCosts: DailyCost[] = [];

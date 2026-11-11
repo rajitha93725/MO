@@ -88,6 +88,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
               <div className="small muted">{g.lines.map((l) => `${l.qty}× ${l.item_name}`).join(", ")}</div>
               <div className="small"><span className="badge">{g.lines[0].payment_method}</span> {g.lines[0].notes}</div>
             </div>
+            <a className="btn small" href={`/receipt/${encodeURIComponent(g.id)}`} aria-label="Print receipt">🖨</a>
             {user.role === "partner" && <DeleteOrderButton orderId={g.id} />}
           </div>
         ))}

@@ -65,13 +65,13 @@ export function useAction() {
   const [pending, start] = useTransition();
   const [errors, setErrors] = useState<string[]>([]);
   const [toast, setToast] = useState("");
-  const call = (fn: () => Promise<ActionResult>, onOk?: () => void) =>
+  const call = (fn: () => Promise<ActionResult>, onOk?: (r: Extract<ActionResult, { ok: true }>) => void) =>
     start(async () => {
       const r = await fn();
       if (r.ok) {
         setErrors([]);
         setToast(r.message ?? "Saved");
-        onOk?.();
+        onOk?.(r);
       } else setErrors(r.errors);
     });
   const ui = (

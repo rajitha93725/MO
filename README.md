@@ -93,13 +93,14 @@ Dates are `YYYY-MM-DD`, months are `YYYY-MM`, and amounts are whole rupees.
 ### Menu
 | Column | Meaning |
 |---|---|
-| item_id | `B01`… Breakfast, `A01`… All day dining, `D01`… Drinks |
-| category | Breakfast / All day dining / Drinks |
-| sub_category | e.g. Crepes, Juice, Kottu |
+| item_id | Category letter + number from `menu_categories`: `B01`… Brunch, `A01`… All Day Menu, `D01`… Beverage |
+| category | One of `menu_categories` (Brunch / All Day Menu / Beverage) |
+| sub_category | e.g. SweetMO, Ceylon Street, Mojito |
 | item_name | Name shown on the order screen |
 | unit_cost | Ingredient cost per portion (Rs) |
 | selling_price | Menu price (Rs) |
 | active | yes / no. Inactive items are hidden from order entry. |
+| description | Optional dish description, shown on the Menu page |
 
 ### Menu_Price_History
 Written automatically whenever a partner changes an item's cost or price.
@@ -146,6 +147,11 @@ Types: Opening balance, Top-up, Withdrawal (these use `account`), and Transfer p
 | food_cost_target_pct | 40 | menu highlight and dashboard |
 | partners | Rajitha:50,Janith:50 | cafe profit split (must total 100) |
 | villa_partners | Rajitha:100 | villa profit split (must total 100) |
+| menu_categories | Brunch:B,All Day Menu:A,Beverage:D | menu categories in display order, with the letter for new item IDs. Breakfast orders open the first one, other meals the second |
+| receipt_name | MO Cafe | receipt: name at the top |
+| receipt_address | (empty) | receipt: optional address / phone line |
+| receipt_footer | Thank you! Come again | receipt: last line |
+| receipt_width_mm | 80 | receipt paper width (80 or 58 for receipt printers) |
 | petty_low_threshold | 20000 | low petty-cash warning |
 | one_time_allocation | full | `full` = all in month paid; `spread` = over N open months |
 | one_time_spread_months | 6 | N for spread |
@@ -212,7 +218,7 @@ tests/                      unit tests (profit, cash, daily, validation, CSV)
 ```bash
 npm test
 ```
-106 tests cover the profit formulas, fixed-cost allocation (monthly, closed months, one-time full or spread), planned vs actual, partner split and rounding, YTD, cash and bank balances, transfers, the low-cash warning, the daily view, to-do urgency, validation, CSV escaping, the Sheets store, and MO Villa (nights, commission and payout, splitting stays across months, double booking, monthly villa profit, occupancy, per-room profit, cash and combined profit).
+114 tests cover the profit formulas, fixed-cost allocation (monthly, closed months, one-time full or spread), planned vs actual, partner split and rounding, YTD, cash and bank balances, transfers, the low-cash warning, the daily view, to-do urgency, validation, CSV escaping, the Sheets store, and MO Villa (nights, commission and payout, splitting stays across months, double booking, monthly villa profit, occupancy, per-room profit, cash and combined profit).
 
 ---
 
@@ -294,3 +300,12 @@ Screen: **More → Reports** (partners). Pick a month with ‹ › or the month 
 | Cash & bank *(owner only)* | Opening (previous month end) and closing (month end) balance per account, and the month's movements |
 
 All figures come from the same calculations as the other pages (`src/lib/calc/report.ts`), so the report always matches the Profit, Villa and Cash pages.
+
+## 11. Receipts
+
+After **Save** on the New order screen, the receipt opens and the print dialog appears straight away. The **Print receipt after saving** checkbox in the cart turns this on or off, and each phone or tablet remembers its own choice.
+
+- Reprint any order from **Sales** with the 🖨 button next to it.
+- The receipt shows the date, time, meal, order number, each item (qty × price), total, payment method, item count and the order note.
+- Header, footer and paper width come from Settings (`receipt_name`, `receipt_address`, `receipt_footer`, `receipt_width_mm`).
+- Printing uses the device's normal print dialog, so it works with any printer the phone, tablet or computer can print to: a Bluetooth or USB receipt printer (pick it in the dialog), a Wi-Fi printer, or "Save as PDF".
