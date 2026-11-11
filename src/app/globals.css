@@ -242,3 +242,22 @@ table.cal td.cal-booked a { display: flex; align-items: center; justify-content:
 .skeleton { background: var(--surface-2); border-radius: 10px; animation: pulse 1.2s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+
+/* ---------- reports & printing ---------- */
+.report-section { break-inside: auto; }
+.report-long { max-height: 480px; overflow: auto; }
+@media print {
+  /* Always print in light colours, even when the device is in dark mode. */
+  :root, :root:not([data-theme="light"]) {
+    --bg: #ffffff; --surface: #ffffff; --surface-2: #f0eeeb; --border: #cccccc;
+    --text: #000000; --text-2: #333333; --muted: #666666;
+    --good: #1a7f37; --bad: #c62a1c; --warn: #9a6200; --closed: #e9e7e3;
+  }
+  .topbar, .bottomnav, .no-print, .tip, button { display: none !important; }
+  main { padding: 0; max-width: none; }
+  body { background: #fff; color: #000; }
+  .card { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; }
+  .report-long, .table-wrap { max-height: none; overflow: visible; }
+  .report-section h2 { break-after: avoid; }
+  table { font-size: 10pt; }
+}

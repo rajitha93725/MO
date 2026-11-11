@@ -5,6 +5,7 @@ export default async function MorePage() {
   const user = await requirePage("any");
   const links = [
     { href: "/villa", t: "MO Villa", d: "Bookings, calendar, villa costs, profit", owner: true },
+    { href: "/reports", t: "Reports", d: user.owner ? "Monthly report: sales, orders, costs, profit, villa, cash" : "Monthly report: sales, orders, costs, profit", partner: true },
     { href: "/profit", t: "Profit", d: user.owner ? "Cafe + Villa, YTD, partner shares" : "Cafe profit, YTD, partner shares", partner: true },
     { href: "/cash", t: "Cash & bank", d: "Balances and movements", owner: true },
     { href: "/capital", t: "Capital", d: "Opening budget paid by each partner", partner: true },

@@ -212,7 +212,7 @@ tests/                      unit tests (profit, cash, daily, validation, CSV)
 ```bash
 npm test
 ```
-95 tests cover the profit formulas, fixed-cost allocation (monthly, closed months, one-time full or spread), planned vs actual, partner split and rounding, YTD, cash and bank balances, transfers, the low-cash warning, the daily view, to-do urgency, validation, CSV escaping, the Sheets store, and MO Villa (nights, commission and payout, splitting stays across months, double booking, monthly villa profit, occupancy, per-room profit, cash and combined profit).
+106 tests cover the profit formulas, fixed-cost allocation (monthly, closed months, one-time full or spread), planned vs actual, partner split and rounding, YTD, cash and bank balances, transfers, the low-cash warning, the daily view, to-do urgency, validation, CSV escaping, the Sheets store, and MO Villa (nights, commission and payout, splitting stays across months, double booking, monthly villa profit, occupancy, per-room profit, cash and combined profit).
 
 ---
 
@@ -275,3 +275,22 @@ Screen: **More → Capital** (partners; only the owner sees MO Villa and shared 
 - **Tracked only:** capital does **not** change the profit split. Profit stays at the Settings split (50/50), because Rajitha contributes money and Janith contributes cooking and management.
 - `paid_into` = Bank or Petty cash raises that balance on the Cash page. **Paid directly** (straight to a supplier) is recorded but doesn't touch the business accounts.
 - Record money a partner puts into the business here, not as a cash "Opening balance", so it isn't counted twice.
+
+## 10. Monthly report
+
+Screen: **More → Reports** (partners). Pick a month with ‹ › or the month box. **Print / PDF** prints the whole report (navigation and buttons are hidden, and it always prints in light colours). **CSV** downloads the summary, and each section has its own CSV.
+
+| Section | Contents |
+|---|---|
+| Headline | Sales, orders and average order value, total costs, cafe net profit, each compared with the previous month |
+| Cafe profit statement | Sales → food cost → gross profit → daily and fixed costs → net profit, margin, food cost %, cafe partner shares, vs previous month, vs plan, food cost check |
+| Sales | By meal, by payment method, by menu category, and day by day against target; trading days, best day, average per trading day |
+| Items sold | Every item ranked by sales: qty, sales, food cost, gross profit, food cost % (above target shown red) |
+| Order details | One row per order: date, time, meal, items, payment, total, entered by |
+| Daily costs | By category, by account (Petty cash / Bank), by who paid, plus the full list |
+| Fixed costs | Planned vs actual, paid or not, amount counted in profit |
+| MO Villa *(owner only)* | Villa profit, occupancy per room, average price per night, by platform, per-room profit, bookings touching the month (nights and gross in this month), villa costs |
+| Business profit & partner shares *(owner only)* | Cafe share + villa share per partner (Settings: `partners`, `villa_partners`) |
+| Cash & bank *(owner only)* | Opening (previous month end) and closing (month end) balance per account, and the month's movements |
+
+All figures come from the same calculations as the other pages (`src/lib/calc/report.ts`), so the report always matches the Profit, Villa and Cash pages.
