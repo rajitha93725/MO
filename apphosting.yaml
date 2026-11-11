@@ -22,6 +22,9 @@ env:
     value: 398381150316-shhuq6j195khilanldmb1ttn8vtghtiv.apps.googleusercontent.com
   - variable: BOOTSTRAP_PARTNER_EMAILS
     value: rajitha93725@gmail.com
+  # Owner: the only account that sees MO Villa, Cash & bank, Settings and Users.
+  - variable: OWNER_EMAILS
+    value: rajitha93725@gmail.com
   # Public URL of the deployed app (used by Google sign-in). Update after the first deploy if it differs.
   - variable: NEXTAUTH_URL
     value: https://mo-ops--mo-villa-and-cafe.asia-southeast1.hosted.app

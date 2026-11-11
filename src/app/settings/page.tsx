@@ -5,7 +5,7 @@ import { DEFAULT_SETTING_ROWS } from "@/lib/settings";
 import { SettingsForm, TargetsForm, UsersForm } from "./SettingsForms";
 
 export default async function SettingsPage() {
-  await requirePage("partner");
+  await requirePage("owner");
   try {
     const [rows, targets, users] = await Promise.all([repo.settingRows(), repo.targets(), repo.users()]);
     await repo.settings(); // validates current values; throws a readable error if broken

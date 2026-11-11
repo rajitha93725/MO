@@ -41,7 +41,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <div className="user">
               {user.name}
               <br />
-              <span className="badge">{user.role}</span>
+              <span className="badge">{user.owner ? "owner" : user.role}</span>
               {!authDisabled() && (
                 <>
                   {" "}

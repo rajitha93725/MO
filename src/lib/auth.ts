@@ -11,19 +11,36 @@ export interface AppUser {
   email: string;
   name: string;
   role: Role;
+  /** Owner = full access, including MO Villa, Cash & bank, Settings and Users. */
+  owner: boolean;
 }
 
+/** Page/action access levels: "owner" ⊂ "partner" ⊂ "any". */
+export type Access = Role | "owner" | "any";
+
 export const authDisabled = () => process.env.AUTH_DISABLED === "true";
+
+const emailList = (v: string | undefined) => (v ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+
+/**
+ * Owners come from the server config (OWNER_EMAILS, falling back to BOOTSTRAP_PARTNER_EMAILS),
+ * never from the sheet, so nobody can give themselves owner access from inside the app.
+ */
+export function ownerEmails(): string[] {
+  const owners = emailList(process.env.OWNER_EMAILS);
+  return owners.length ? owners : emailList(process.env.BOOTSTRAP_PARTNER_EMAILS);
+}
 
 /** Look up an email in the Users tab (or the bootstrap partner list). */
 export async function resolveUser(email: string | null | undefined): Promise<AppUser | null> {
   if (!email) return null;
   const e = email.trim().toLowerCase();
+  const owner = ownerEmails().includes(e);
   const users = await repo.users();
   const u = users.find((x) => String(x.email).trim().toLowerCase() === e);
-  if (u && (u.role === "partner" || u.role === "staff")) return { email: e, name: u.name || e, role: u.role };
-  const bootstrap = (process.env.BOOTSTRAP_PARTNER_EMAILS ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-  if (bootstrap.includes(e)) return { email: e, name: e.split("@")[0], role: "partner" };
+  // An owner is always a partner, whatever the Users tab says.
+  if (u && (u.role === "partner" || u.role === "staff")) return { email: e, name: u.name || e, role: owner ? "partner" : u.role, owner };
+  if (owner || emailList(process.env.BOOTSTRAP_PARTNER_EMAILS).includes(e)) return { email: e, name: e.split("@")[0], role: "partner", owner };
   return null;
 }
 
@@ -64,8 +81,11 @@ export const authOptions: NextAuthOptions = {
 /** Cached per request: the layout and the page share one lookup. */
 export const currentUser = cache(async function currentUser(): Promise<AppUser | null> {
   if (authDisabled()) {
-    const role = process.env.DEMO_ROLE === "staff" ? "staff" : "partner";
-    return { email: "demo@local", name: role === "staff" ? "Staff (demo)" : "Rajitha (demo)", role };
+    // DEMO_ROLE: owner (default) | partner | staff
+    const d = process.env.DEMO_ROLE;
+    const role = d === "staff" ? "staff" : "partner";
+    const owner = !d || d === "owner";
+    return { email: "demo@local", name: role === "staff" ? "Staff (demo)" : owner ? "Rajitha (demo)" : "Janith (demo)", role, owner };
   }
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) return null;
@@ -73,17 +93,24 @@ export const currentUser = cache(async function currentUser(): Promise<AppUser |
 });
 
 /** For pages: redirect to login when signed out, or home when the role is not allowed. */
-export async function requirePage(role: Role | "any" = "any"): Promise<AppUser> {
+export function allowed(u: AppUser, access: Access): boolean {
+  if (access === "owner") return u.owner;
+  if (access === "partner") return u.role === "partner";
+  return true;
+}
+
+export async function requirePage(access: Access = "any"): Promise<AppUser> {
   const u = await currentUser();
   if (!u) redirect("/login");
-  if (role === "partner" && u.role !== "partner") redirect("/?denied=1");
+  if (!allowed(u, access)) redirect("/?denied=1");
   return u;
 }
 
 /** For server actions: throw when not allowed. */
-export async function requireAction(role: Role | "any" = "any"): Promise<AppUser> {
+export async function requireAction(access: Access = "any"): Promise<AppUser> {
   const u = await currentUser();
   if (!u) throw new Error("Please sign in.");
-  if (role === "partner" && u.role !== "partner") throw new Error("Only partners can do this.");
+  if (access === "owner" && !u.owner) throw new Error("Only the owner can do this.");
+  if (access === "partner" && u.role !== "partner") throw new Error("Only partners can do this.");
   return u;
 }

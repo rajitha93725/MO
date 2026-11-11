@@ -6,7 +6,7 @@ import { FORMULAS, profitTable, totalProfit, yearToDate, type MonthProfit, type 
 import { num, pct } from "@/lib/calc/money";
 import { CsvButton, Tip } from "@/components/ui";
 import { StorageError } from "@/components/StorageError";
-import { combinedTable, combinedTotals, ytdRange, COMBINED_FORMULA } from "@/lib/calc/combined";
+import { combinedTable, combinedTotals, profitPartners, shareLabel, ytdRange, COMBINED_FORMULA } from "@/lib/calc/combined";
 
 const H = ({ label, tip }: { label: string; tip?: string }) => (
   <th className="num"><span className="row" style={{ justifyContent: "flex-end", gap: 2, flexWrap: "nowrap" }}>{label}{tip && <Tip text={tip} />}</span></th>
@@ -35,7 +35,8 @@ function Cells({ r }: { r: MonthProfit | ProfitTotals }) {
 }
 
 export default async function ProfitPage() {
-  await requirePage("partner");
+  const user = await requirePage("partner");
+  const isOwner = user.owner; // villa figures are for the owner only
   let data;
   try {
     data = await repo.all();
@@ -54,8 +55,8 @@ export default async function ProfitPage() {
   const sinceOpening = totalProfit(toDate, settings);
   const combined = combinedTable(from, to, input, villa);
   const [yf, yt] = ytdRange(thisMonth < from ? from : thisMonth, from);
-  const combinedYtd = combinedTotals(combinedTable(yf, yt, input, villa), settings.partners);
-  const combinedToDate = combinedTotals(combined.filter((r) => r.month <= thisMonth), settings.partners);
+  const combinedYtd = combinedTotals(combinedTable(yf, yt, input, villa), settings);
+  const combinedToDate = combinedTotals(combined.filter((r) => r.month <= thisMonth), settings);
   const csvHeaders = ["month", "closed", "sales", "food_cost_menu", "daily_costs", "fixed_costs", "total_costs", "net_profit", "net_margin_pct",
     ...settings.partners.map((p) => `share_${p.name}`), "actual_food_purchases", "food_cost_difference", "planned_sales", "sales_vs_plan", "planned_net_profit", "profit_vs_plan"];
   const csvRows = rows.map((r) => [r.month, r.closed ? "yes" : "no", r.sales, r.foodCost, r.dailyCosts, r.fixedCosts, r.totalCosts, r.netProfit,
@@ -75,8 +76,11 @@ export default async function ProfitPage() {
       <div className="grid cols-4">
         <div className="card stat"><div className="label">YTD cafe sales</div><div className="value">{num(ytd.sales)}</div><div className="sub">Plan {num(ytd.plannedSales)}</div></div>
         <div className="card stat"><div className="label">YTD cafe net profit <Tip text={FORMULAS.netProfit} /></div><div className={`value ${ytd.netProfit < 0 ? "neg" : ""}`}>{num(ytd.netProfit)}</div><div className="sub">Plan {num(ytd.plannedNetProfit)}</div></div>
-        {combinedYtd.shares.map((s) => (
-          <div key={s.name} className="card stat"><div className="label">YTD {s.name} ({s.pct}%) <Tip text={COMBINED_FORMULA} /></div><div className="value">{num(s.amount)}</div><div className="sub">Cafe + Villa · since opening {num(combinedToDate.shares.find((x) => x.name === s.name)?.amount ?? 0)}</div></div>
+        {isOwner && combinedYtd.shares.map((s) => (
+          <div key={s.name} className="card stat"><div className="label">YTD {s.name} ({shareLabel(s)}) <Tip text={COMBINED_FORMULA} /></div><div className="value">{num(s.amount)}</div><div className="sub">Cafe + Villa · since opening {num(combinedToDate.shares.find((x) => x.name === s.name)?.amount ?? 0)}</div></div>
+        ))}
+        {!isOwner && ytd.partnerShares.map((s) => (
+          <div key={s.name} className="card stat"><div className="label">YTD {s.name} cafe share ({s.pct}%) <Tip text={FORMULAS.partnerShare} /></div><div className="value">{num(s.amount)}</div><div className="sub">Since opening {num(sinceOpening.partnerShares.find((x) => x.name === s.name)?.amount ?? 0)}</div></div>
         ))}
       </div>
 
@@ -114,15 +118,16 @@ export default async function ProfitPage() {
         </table>
       </div>
 
+      {isOwner && <>
       <div className="spread">
         <h2>Business profit: Cafe + Villa <Tip text={COMBINED_FORMULA} /></h2>
         <CsvButton
           filename="business-profit"
-          headers={["month", "cafe_net_profit", "villa_net_profit", "total_profit", ...settings.partners.map((p) => `share_${p.name}`)]}
+          headers={["month", "cafe_net_profit", "villa_net_profit", "total_profit", ...profitPartners(settings).map((p) => `share_${p.name}`)]}
           rows={combined.map((r) => [r.month, r.cafe, r.villa, r.total, ...r.shares.map((s) => s.amount)])}
         />
       </div>
-      <p className="small muted" style={{ margin: 0 }}>Partner shares here are calculated on the total of both businesses. The Villa breakdown is on the MO Villa page.</p>
+      <p className="small muted" style={{ margin: 0 }}>Each partner gets their cafe % of cafe profit plus their villa % of villa profit (Settings: partners, villa_partners). The Villa breakdown is on the MO Villa page.</p>
       <div className="table-wrap">
         <table>
           <thead>
@@ -131,7 +136,7 @@ export default async function ProfitPage() {
               <H label="Cafe net profit" tip={FORMULAS.netProfit} />
               <H label="Villa net profit" tip="Villa net profit = Gross bookings − Commission − Booking costs − Villa costs" />
               <H label="Total profit" tip={COMBINED_FORMULA} />
-              {settings.partners.map((p) => <H key={p.name} label={`${p.name} ${p.pct}%`} tip={COMBINED_FORMULA} />)}
+              {profitPartners(settings).map((p) => <H key={p.name} label={`${p.name} (${shareLabel(p)})`} tip={COMBINED_FORMULA} />)}
             </tr>
           </thead>
           <tbody>
@@ -159,6 +164,7 @@ export default async function ProfitPage() {
           </tbody>
         </table>
       </div>
+      </>}
     </div>
   );
 }

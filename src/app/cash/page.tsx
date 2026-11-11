@@ -36,7 +36,7 @@ function Breakdown({ b, tip, low }: { b: BalanceBreakdown; tip: string; low?: bo
 }
 
 export default async function CashPage() {
-  await requirePage("partner");
+  await requirePage("owner");
   let data;
   try {
     data = await repo.all();

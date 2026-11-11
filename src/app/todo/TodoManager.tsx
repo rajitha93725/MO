@@ -10,9 +10,11 @@ type Row = Todo & { urgency: TodoUrgency };
 
 type BookingOption = { id: string; label: string; linkable: boolean; month: string };
 
-export function TodoManager({ list, view, today, amberDays, isPartner, counts, bookings }: {
+export function TodoManager({ list, view, today, amberDays, isPartner, counts, bookings, showBookings }: {
   list: Row[]; view: "active" | "done"; today: string; amberDays: number; isPartner: boolean; counts: { active: number; done: number };
   bookings: BookingOption[];
+  /** Only the owner sees villa bookings. */
+  showBookings: boolean;
 }) {
   const [editing, setEditing] = useState<Todo | null>(null);
   const ref = useRef<HTMLFormElement>(null);
@@ -48,12 +50,14 @@ export function TodoManager({ list, view, today, amberDays, isPartner, counts, b
             <select name="priority" defaultValue={editing?.priority ?? "Medium"}>{PRIORITIES.map((p) => <option key={p}>{p}</option>)}</select>
           </label>
           <label className="field"><span>Due date</span><input type="date" name="due_date" required defaultValue={editing?.due_date ?? today} /></label>
-          <label className="field"><span>Villa booking (optional)</span>
-            <select name="booking_id" defaultValue={editing?.booking_id ?? ""}>
-              <option value="">— none —</option>
-              {bookings.filter((b) => b.linkable || b.id === editing?.booking_id).map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
-            </select>
-          </label>
+          {showBookings && (
+            <label className="field"><span>Villa booking (optional)</span>
+              <select name="booking_id" defaultValue={editing?.booking_id ?? ""}>
+                <option value="">— none —</option>
+                {bookings.filter((b) => b.linkable || b.id === editing?.booking_id).map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
+              </select>
+            </label>
+          )}
           <div className="row full">
             <button className="primary" disabled={pending} style={{ flex: 1 }}>{editing ? "Update task" : "Add task"}</button>
             {editing && <button type="button" onClick={() => setEditing(null)}>Cancel</button>}

@@ -9,7 +9,10 @@ import { TodoManager } from "./TodoManager";
 export default async function TodoPage({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
   const user = await requirePage("any");
   try {
-    const [todos, settings, villa] = await Promise.all([repo.todos(), repo.settings(), repo.villa()]);
+    const [allTodos, settings, villaRows] = await Promise.all([repo.todos(), repo.settings(), repo.villa()]);
+    // Villa bookings, and tasks linked to them, are for the owner only.
+    const todos = user.owner ? allTodos : allTodos.filter((td) => !td.booking_id);
+    const villa = user.owner ? villaRows : [];
     const t = today(settings);
     const view = (await searchParams).view === "done" ? "done" : "active";
     const list = (view === "done" ? doneTodos(todos) : activeTodos(todos)).map((td) => ({ ...td, urgency: todoUrgency(td, t, settings) }));
@@ -31,6 +34,7 @@ export default async function TodoPage({ searchParams }: { searchParams: Promise
         isPartner={user.role === "partner"}
         counts={{ active: activeTodos(todos).length, done: doneTodos(todos).length }}
         bookings={bookings}
+        showBookings={user.owner}
       />
     );
   } catch (e) {

@@ -4,9 +4,9 @@ import { useRef } from "react";
 import { useRouter } from "next/navigation";
 import { deleteCapital, saveCapital } from "@/app/actions";
 import { formToObject, useAction } from "@/components/ui";
-import { CAPITAL_BUSINESSES, CAPITAL_PAID_INTO, type CapitalContribution } from "@/lib/types";
+import { CAPITAL_PAID_INTO, type CapitalBusiness, type CapitalContribution } from "@/lib/types";
 
-export function CapitalForm({ editing, partners, today }: { editing: CapitalContribution | null; partners: string[]; today: string }) {
+export function CapitalForm({ editing, partners, today, businesses }: { editing: CapitalContribution | null; partners: string[]; today: string; businesses: CapitalBusiness[] }) {
   const router = useRouter();
   const ref = useRef<HTMLFormElement>(null);
   const { pending, call, ui } = useAction();
@@ -30,7 +30,7 @@ export function CapitalForm({ editing, partners, today }: { editing: CapitalCont
       </label>
       <label className="field"><span>Date *</span><input type="date" name="date" required defaultValue={editing?.date ?? today} /></label>
       <label className="field"><span>Business *</span>
-        <select name="business" defaultValue={editing?.business ?? "MO Cafe"}>{CAPITAL_BUSINESSES.map((b) => <option key={b}>{b}</option>)}</select>
+        <select name="business" defaultValue={editing?.business ?? "MO Cafe"}>{businesses.map((b) => <option key={b}>{b}</option>)}</select>
       </label>
       <label className="field"><span>Amount (Rs) *</span><input type="number" name="amount" inputMode="numeric" min={1} step={1} required defaultValue={editing?.amount || ""} /></label>
       <label className="field full"><span>Description *</span><input name="description" required defaultValue={editing?.description ?? ""} placeholder="e.g. Kitchen equipment, villa furniture" /></label>

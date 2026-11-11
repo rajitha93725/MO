@@ -21,7 +21,7 @@ const PLATFORM_SLOTS = ["--series-1", "--series-2", "--series-3", "--series-4", 
 type SP = { view?: string; month?: string; room?: string; platform?: string; status?: string; edit?: string; cost?: string };
 
 export default async function VillaPage({ searchParams }: { searchParams: Promise<SP> }) {
-  await requirePage("partner");
+  await requirePage("owner");
   let records: VillaRecord[], settings: Settings;
   try {
     [records, settings] = await Promise.all([repo.villa(), repo.settings()]);

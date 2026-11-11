@@ -205,6 +205,8 @@ export interface Settings {
   villa_platforms: VillaPlatform[];
   villa_cost_categories: string[];
   villa_allocation: VillaAllocation;
+  /** Who shares villa profit (cafe profit uses `partners`). */
+  villa_partners: Partner[];
 }
 
 /** Raw key/value row of the Settings tab. */

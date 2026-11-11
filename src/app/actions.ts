@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { repo, newId } from "@/lib/data/repo";
-import { requireAction } from "@/lib/auth";
+import { requireAction, type AppUser } from "@/lib/auth";
 import { V, ValidationError } from "@/lib/validate";
 import { today, nowTime } from "@/lib/today";
 import { parsePartners, parseSettings } from "@/lib/settings";
@@ -229,7 +229,7 @@ export async function undoFixedPayment(fixed_id: string, month: string): Promise
 
 export async function saveMovement(form: Record<string, string>): Promise<ActionResult> {
   return run(async () => {
-    await requireAction("partner");
+    await requireAction("owner");
     const v = new V();
     const type = v.oneOf("Type", form.type, MOVEMENT_TYPES);
     const row = {
@@ -250,7 +250,7 @@ export async function saveMovement(form: Record<string, string>): Promise<Action
 
 export async function deleteMovement(id: string): Promise<ActionResult> {
   return run(async () => {
-    await requireAction("partner");
+    await requireAction("owner");
     await repo.remove("cash", id);
     return "Movement deleted";
   });
@@ -258,9 +258,18 @@ export async function deleteMovement(id: string): Promise<ActionResult> {
 
 // ---------------- To-do (partners) ----------------
 
+/** Non-owners may not see or change tasks linked to villa bookings. */
+async function assertTodoAccess(user: AppUser, task_id: string | undefined) {
+  if (user.owner || !task_id) return;
+  const t = (await repo.todos()).find((x) => x.task_id === task_id);
+  if (t?.booking_id) throw new Error("Only the owner can change this task.");
+}
+
 export async function saveTodo(form: Record<string, string>): Promise<ActionResult> {
   return run(async () => {
-    await requireAction("partner");
+    const user = await requireAction("partner");
+    await assertTodoAccess(user, form.task_id);
+    if (!user.owner && (form.booking_id ?? "").trim()) throw new Error("Only the owner can link villa bookings.");
     const v = new V();
     const row: Todo = {
       task_id: form.task_id || newId("T"),
@@ -283,7 +292,8 @@ export async function saveTodo(form: Record<string, string>): Promise<ActionResu
 
 export async function setTodoDone(task_id: string, done: boolean): Promise<ActionResult> {
   return run(async () => {
-    await requireAction("partner");
+    const user = await requireAction("partner");
+    await assertTodoAccess(user, task_id);
     const settings = await repo.settings();
     await repo.update("todo", task_id, { done, done_date: done ? today(settings) : "" });
     return done ? "Done" : "Task reopened";
@@ -294,7 +304,7 @@ export async function setTodoDone(task_id: string, done: boolean): Promise<Actio
 
 export async function saveSettings(values: Record<string, string>): Promise<ActionResult> {
   return run(async () => {
-    await requireAction("partner");
+    await requireAction("owner");
     const v = new V();
     v.month("Opening month", values.opening_month);
     const partners = parsePartners(values.partners ?? "");
@@ -327,7 +337,7 @@ export async function saveSettings(values: Record<string, string>): Promise<Acti
 
 export async function saveTargets(rows: Record<string, string>[]): Promise<ActionResult> {
   return run(async () => {
-    await requireAction("partner");
+    await requireAction("owner");
     const v = new V();
     const out: TargetPeriod[] = rows.filter((r) => (r.period ?? "").trim()).map((r, i) => {
       const t = {
@@ -351,7 +361,7 @@ export async function saveTargets(rows: Record<string, string>[]): Promise<Actio
 
 export async function saveUsers(rows: Record<string, string>[]): Promise<ActionResult> {
   return run(async () => {
-    const me = await requireAction("partner");
+    const me = await requireAction("owner");
     const v = new V();
     const out = rows.filter((r) => (r.email ?? "").trim()).map((r) => ({
       email: v.required("Email", r.email).toLowerCase(),
@@ -377,7 +387,7 @@ const EMPTY_VILLA: VillaRecord = {
 
 export async function saveBooking(form: Record<string, string>): Promise<ActionResult> {
   return run(async () => {
-    await requireAction("partner");
+    await requireAction("owner");
     const settings = await repo.settings();
     const records = await repo.villa();
     const v = new V();
@@ -442,7 +452,7 @@ export async function saveBooking(form: Record<string, string>): Promise<ActionR
 
 export async function markPayoutReceived(record_id: string, received_to: string, payout_date: string): Promise<ActionResult> {
   return run(async () => {
-    await requireAction("partner");
+    await requireAction("owner");
     const v = new V();
     const to = v.oneOf("Received to", received_to, ACCOUNTS);
     const date = v.date("Payout date", payout_date);
@@ -454,7 +464,7 @@ export async function markPayoutReceived(record_id: string, received_to: string,
 
 export async function saveVillaCost(form: Record<string, string>): Promise<ActionResult> {
   return run(async () => {
-    await requireAction("partner");
+    await requireAction("owner");
     const settings = await repo.settings();
     const v = new V();
     const rooms = settings.villa_rooms.map((r) => r.room_number);
@@ -479,7 +489,7 @@ export async function saveVillaCost(form: Record<string, string>): Promise<Actio
 
 export async function deleteVillaRecord(record_id: string): Promise<ActionResult> {
   return run(async () => {
-    await requireAction("partner");
+    await requireAction("owner");
     await repo.remove("villa", record_id);
     return "Deleted";
   });
@@ -487,9 +497,18 @@ export async function deleteVillaRecord(record_id: string): Promise<ActionResult
 
 // ---------------- Partner capital (partners) ----------------
 
+/** Non-owners only see and change MO Cafe capital. */
+async function assertCapitalAccess(user: AppUser, capital_id: string | undefined) {
+  if (user.owner || !capital_id) return;
+  const r = (await repo.capital()).find((x) => x.capital_id === capital_id);
+  if (r && r.business !== "MO Cafe") throw new Error("Only the owner can change this contribution.");
+}
+
 export async function saveCapital(form: Record<string, string>): Promise<ActionResult> {
   return run(async () => {
-    await requireAction("partner");
+    const user = await requireAction("partner");
+    await assertCapitalAccess(user, form.capital_id);
+    if (!user.owner && form.business !== "MO Cafe") throw new Error("Only the owner can record MO Villa or shared capital.");
     const settings = await repo.settings();
     const v = new V();
     const row: CapitalContribution = {
@@ -511,7 +530,8 @@ export async function saveCapital(form: Record<string, string>): Promise<ActionR
 
 export async function deleteCapital(id: string): Promise<ActionResult> {
   return run(async () => {
-    await requireAction("partner");
+    const user = await requireAction("partner");
+    await assertCapitalAccess(user, id);
     await repo.remove("capital", id);
     return "Contribution deleted";
   });

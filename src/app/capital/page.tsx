@@ -6,13 +6,13 @@ import { num, rs } from "@/lib/calc/money";
 import { CsvButton, Tip } from "@/components/ui";
 import { StorageError } from "@/components/StorageError";
 import { HEADERS } from "@/lib/data/schema";
-import type { CapitalContribution, Settings } from "@/lib/types";
+import { CAPITAL_BUSINESSES, type CapitalContribution, type Settings } from "@/lib/types";
 import { CapitalForm, DeleteCapitalButton } from "./CapitalForm";
 
 const pctText = (s: number | null) => (s === null ? "-" : `${(s * 100).toFixed(1)}%`);
 
 export default async function CapitalPage({ searchParams }: { searchParams: Promise<{ edit?: string }> }) {
-  await requirePage("partner");
+  const user = await requirePage("partner");
   let rows: CapitalContribution[], settings: Settings;
   try {
     [rows, settings] = await Promise.all([repo.capital(), repo.settings()]);
@@ -20,6 +20,8 @@ export default async function CapitalPage({ searchParams }: { searchParams: Prom
     return <StorageError error={e} />;
   }
   const { edit } = await searchParams;
+  // Non-owners only see MO Cafe capital (villa and shared spending stay private).
+  if (!user.owner) rows = rows.filter((r) => r.business === "MO Cafe");
   const editing = edit ? rows.find((r) => r.capital_id === edit) ?? null : null;
   const sum = capitalSummary(rows, settings.partners);
   const sorted = [...rows].sort((a, b) => b.date.localeCompare(a.date));
@@ -38,7 +40,7 @@ export default async function CapitalPage({ searchParams }: { searchParams: Prom
         <div className="card stat">
           <div className="label">Total capital</div>
           <div className="value">{rs(sum.total)}</div>
-          <div className="sub">MO Cafe + MO Villa</div>
+          <div className="sub">{user.owner ? "MO Cafe + MO Villa" : "MO Cafe"}</div>
         </div>
         {sum.byPartner.map((p) => (
           <div key={p.name} className="card stat">
@@ -62,7 +64,7 @@ export default async function CapitalPage({ searchParams }: { searchParams: Prom
             </tr>
           </thead>
           <tbody>
-            {sum.byBusiness.map((b) => (
+            {sum.byBusiness.filter((b) => user.owner || b.business === "MO Cafe").map((b) => (
               <tr key={b.business}>
                 <td>{b.business === "Both" ? "Both (shared)" : b.business}</td>
                 {b.byPartner.map((p) => (
@@ -80,7 +82,7 @@ export default async function CapitalPage({ searchParams }: { searchParams: Prom
         </table>
       </div>
 
-      <CapitalForm key={editing?.capital_id ?? "new"} editing={editing} partners={settings.partners.map((p) => p.name)} today={today(settings)} />
+      <CapitalForm key={editing?.capital_id ?? "new"} editing={editing} partners={settings.partners.map((p) => p.name)} today={today(settings)} businesses={user.owner ? [...CAPITAL_BUSINESSES] : ["MO Cafe"]} />
       <p className="small muted" style={{ margin: 0 }}>{CAPITAL_FORMULAS.cash}</p>
 
       <h2>Contributions</h2>

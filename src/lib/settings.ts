@@ -38,6 +38,7 @@ export const DEFAULT_SETTING_ROWS: SettingRow[] = [
     description: "Villa cost categories. Separate with ; when a name contains a comma",
   },
   { key: "villa_allocation", value: "nights", description: "nights = split revenue across months by nights stayed; check_in = count it all in the check-in month" },
+  { key: "villa_partners", value: "Rajitha:100", description: "Villa profit split, Name:percent (must total 100). Cafe profit uses 'partners'" },
 ];
 
 export const DEFAULT_TARGETS: TargetPeriod[] = [
@@ -135,6 +136,9 @@ export function parseSettings(rows: SettingRow[], targets: TargetPeriod[]): Sett
   const partners = parsePartners(g("partners"));
   const total = partners.reduce((t, p) => t + p.pct, 0);
   if (Math.abs(total - 100) > 0.001) throw new Error(`Partner split must total 100%, got ${total}%`);
+  const villaPartners = parsePartners(g("villa_partners"));
+  const villaTotal = villaPartners.reduce((t, p) => t + p.pct, 0);
+  if (Math.abs(villaTotal - 100) > 0.001) throw new Error(`Villa partner split (villa_partners) must total 100%, got ${villaTotal}%`);
 
   const alloc = g("one_time_allocation") === "spread" ? "spread" : "full";
   const basis = g("fixed_profit_basis") === "planned" ? "planned" : "actual_when_paid";
@@ -157,6 +161,7 @@ export function parseSettings(rows: SettingRow[], targets: TargetPeriod[]): Sett
     villa_platforms: parsePlatforms(g("villa_platforms")),
     villa_cost_categories: parseCategoryList(g("villa_cost_categories")),
     villa_allocation: g("villa_allocation") === "check_in" ? "check_in" : "nights",
+    villa_partners: villaPartners,
   };
 }
 

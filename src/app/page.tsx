@@ -4,7 +4,7 @@ import { repo } from "@/lib/data/repo";
 import { today } from "@/lib/today";
 import { daySummary, activeTodos, todoUrgency } from "@/lib/calc/daily";
 import { accountBalance, isPettyLow, CASH_FORMULAS } from "@/lib/calc/cash";
-import { monthProfit, profitTable, FORMULAS } from "@/lib/calc/profit";
+import { monthProfit, profitTable, yearToDate, FORMULAS } from "@/lib/calc/profit";
 import { unpaidFixedCosts } from "@/lib/calc/fixedCosts";
 import { addMonths, daysInMonth, monthLabel, monthOf } from "@/lib/calc/dates";
 import { pct, rs } from "@/lib/calc/money";
@@ -13,7 +13,7 @@ import { DailyMealChart, ProfitPlanChart } from "@/components/Charts";
 import { MEALS } from "@/lib/types";
 import { StorageError } from "@/components/StorageError";
 import { pendingPayouts, upcomingCheckIns, villaMonth, VILLA_FORMULAS } from "@/lib/calc/villa";
-import { combinedMonth, combinedTable, combinedTotals, ytdRange, COMBINED_FORMULA } from "@/lib/calc/combined";
+import { combinedMonth, combinedTable, combinedTotals, ytdRange, shareLabel, COMBINED_FORMULA } from "@/lib/calc/combined";
 
 export default async function Dashboard({ searchParams }: { searchParams: Promise<{ denied?: string }> }) {
   const user = await requirePage("any");
@@ -39,7 +39,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const pending = pendingPayouts(villa);
   const combined = combinedMonth(month, input, villa);
   const [yFrom, yTo] = ytdRange(month < settings.opening_month ? settings.opening_month : month, settings.opening_month);
-  const combinedYtd = combinedTotals(combinedTable(yFrom, yTo, input, villa), settings.partners);
+  const combinedYtd = combinedTotals(combinedTable(yFrom, yTo, input, villa), settings);
+  const cafeYtd = yearToDate(month < settings.opening_month ? settings.opening_month : month, input);
 
   const daily = daysInMonth(month).map((d) => {
     const s = daySummary(d, orders, settings);
@@ -57,13 +58,15 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     closed: r.closed,
   }));
 
-  const nextTodos = activeTodos(todos).slice(0, 5);
+  const nextTodos = activeTodos(user.owner ? todos : todos.filter((td) => !td.booking_id)).slice(0, 5);
   const unpaid = unpaidFixedCosts(month, fixedCosts, fixedPayments, settings);
   const isPartner = user.role === "partner";
+  // Villa figures, cash balances and villa-based shares are for the owner only.
+  const isOwner = user.owner;
 
   return (
     <div className="stack">
-      {denied && <div className="errors">That page is for partners only.</div>}
+      {denied && <div className="errors">That page is not available for your account.</div>}
       <div className="spread">
         <h1 style={{ margin: 0 }}>Today · {t}</h1>
         <Link href="/order" className="btn primary">+ New order</Link>
@@ -88,6 +91,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           <div className="value">{pct(day.foodCost, day.sales)}</div>
           <div className="sub">Target ≤ {settings.food_cost_target_pct}%</div>
         </div>
+        {isOwner && <>
         <div className={`card stat ${low ? "warn" : ""}`}>
           <div className="label">Petty cash <Tip text={CASH_FORMULAS.petty} /></div>
           <div className="value">{rs(petty.balance)}</div>
@@ -98,6 +102,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           <div className="value">{rs(bank.balance)}</div>
           <div className="sub">All time</div>
         </div>
+        </>}
       </div>
 
       {isPartner && (
@@ -111,25 +116,37 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               ) : "No plan for this month"}
             </div>
           </div>
-          <div className="card stat">
-            <div className="label">Villa net profit · {monthLabel(month)} <Tip text={VILLA_FORMULAS.netProfit} /></div>
-            <div className={`value ${vm.netProfit < 0 ? "neg" : ""}`}>{rs(vm.netProfit)}</div>
-            <div className="sub">Gross {rs(vm.gross)} · <Link href="/villa?view=summary">details</Link></div>
-          </div>
-          {combined.shares.map((s) => {
+          {isOwner && (
+            <div className="card stat">
+              <div className="label">Villa net profit · {monthLabel(month)} <Tip text={VILLA_FORMULAS.netProfit} /></div>
+              <div className={`value ${vm.netProfit < 0 ? "neg" : ""}`}>{rs(vm.netProfit)}</div>
+              <div className="sub">Gross {rs(vm.gross)} · <Link href="/villa?view=summary">details</Link></div>
+            </div>
+          )}
+          {isOwner && combined.shares.map((s) => {
             const y = combinedYtd.shares.find((x) => x.name === s.name)?.amount ?? 0;
             return (
               <div className="card stat" key={s.name}>
-                <div className="label">{s.name}&apos;s share ({s.pct}%) <Tip text={COMBINED_FORMULA} /></div>
+                <div className="label">{s.name}&apos;s share ({shareLabel(s)}) <Tip text={COMBINED_FORMULA} /></div>
                 <div className={`value ${s.amount < 0 ? "neg" : ""}`}>{rs(s.amount)}</div>
-                <div className="sub">of total {rs(combined.total)} · YTD {rs(y)}</div>
+                <div className="sub">Cafe {rs(s.cafe)} + Villa {rs(s.villa)} · YTD {rs(y)}</div>
+              </div>
+            );
+          })}
+          {!isOwner && mp.partnerShares.map((s) => {
+            const y = cafeYtd.partnerShares.find((x) => x.name === s.name)?.amount ?? 0;
+            return (
+              <div className="card stat" key={s.name}>
+                <div className="label">{s.name}&apos;s cafe share ({s.pct}%) <Tip text={FORMULAS.partnerShare} /></div>
+                <div className={`value ${s.amount < 0 ? "neg" : ""}`}>{rs(s.amount)}</div>
+                <div className="sub">YTD {rs(y)}</div>
               </div>
             );
           })}
         </div>
       )}
 
-      {isPartner && (
+      {isOwner && (
         <div className="grid cols-4">
           <div className="card stat">
             <div className="label">Villa occupancy · {monthLabel(month)} <Tip text={VILLA_FORMULAS.occupancy} /></div>

@@ -52,6 +52,7 @@ Copy `.env.example` to `.env.local` and fill it in:
 | `NEXTAUTH_SECRET` | a long random string (`npx auth secret` or `openssl rand -base64 32`) |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | from step 2.3 |
 | `BOOTSTRAP_PARTNER_EMAILS` | `rajitha93725@gmail.com`. These emails can always sign in as a partner. |
+| `OWNER_EMAILS` | `rajitha93725@gmail.com`. The owner(s): the only accounts that see MO Villa, Cash & bank, Settings and Users. Falls back to `BOOTSTRAP_PARTNER_EMAILS` when empty. |
 
 ### 2.5 Tabs and seed data (already done for the MO sheet)
 ```bash
@@ -76,10 +77,11 @@ The app runs on any Node 18+ host. On **Vercel**: import the repo, add the same 
 
 | Role | Can do |
 |---|---|
-| **partner** | Everything: menu, fixed costs, payments, cash movements, to-dos, settings, users, and edit or delete any entry |
+| **owner** (a partner listed in `OWNER_EMAILS`) | Everything, including **MO Villa**, **Cash & bank**, **Settings** and **Users** |
+| **partner** | The cafe: menu, fixed costs and payments, cafe profit and their cafe share, cafe capital, to-dos, and edit or delete any cafe entry. **No villa information**: no villa page or cards, no villa profit or shares, no booking-linked to-dos, no MO Villa or shared capital, and no Cash & bank (villa money moves through the same accounts) |
 | **staff** | Add orders and daily costs, and view the menu, daily sales and to-dos. No profit, cash, settings or editing of existing entries |
 
-Roles are checked on the server inside every server action (`requireAction`), not only hidden in the UI. Sign-in is limited to the Users tab plus `BOOTSTRAP_PARTNER_EMAILS`.
+Roles are checked on the server inside every page (`requirePage`) and server action (`requireAction`), not only hidden in the UI. Sign-in is limited to the Users tab plus `BOOTSTRAP_PARTNER_EMAILS`. The owner comes from the server config (`OWNER_EMAILS`), never from the sheet, so no one can give themselves owner access from inside the app.
 
 ---
 
@@ -142,7 +144,8 @@ Types: Opening balance, Top-up, Withdrawal (these use `account`), and Transfer p
 | opening_month | 2026-12 | first month in the profit table and YTD |
 | closed_months | 6,7,8,9,10 | greyed months: no monthly fixed costs, plan = 0 |
 | food_cost_target_pct | 40 | menu highlight and dashboard |
-| partners | Rajitha:50,Janith:50 | profit split (must total 100) |
+| partners | Rajitha:50,Janith:50 | cafe profit split (must total 100) |
+| villa_partners | Rajitha:100 | villa profit split (must total 100) |
 | petty_low_threshold | 20000 | low petty-cash warning |
 | one_time_allocation | full | `full` = all in month paid; `spread` = over N open months |
 | one_time_spread_months | 6 | N for spread |
@@ -171,7 +174,7 @@ For each month:
 - **Total costs** = Daily costs + Fixed costs
 - **Net profit** = Sales − Total costs. Menu-based food cost isn't subtracted again, because real purchases are already in Daily costs.
 - **Net margin** = Net profit ÷ Sales, shown as "-" when Sales = 0
-- **Partner share** = Net profit × partner %. Rounded to whole rupees; any remainder goes to the last partner so the shares always add up exactly.
+- **Partner share** = Net profit × partner % (Settings: `partners`). Rounded to whole rupees; any remainder goes to the last partner so the shares always add up exactly.
 - **Food cost check** = actual Food & ingredients + Drinks purchases − menu-based food cost. A positive result means waste, stock build-up or price changes.
 - **YTD** = Jan (or the opening month, if later) through the current month
 
@@ -209,13 +212,13 @@ tests/                      unit tests (profit, cash, daily, validation, CSV)
 ```bash
 npm test
 ```
-83 tests cover the profit formulas, fixed-cost allocation (monthly, closed months, one-time full or spread), planned vs actual, partner split and rounding, YTD, cash and bank balances, transfers, the low-cash warning, the daily view, to-do urgency, validation, CSV escaping, the Sheets store, and MO Villa (nights, commission and payout, splitting stays across months, double booking, monthly villa profit, occupancy, per-room profit, cash and combined profit).
+95 tests cover the profit formulas, fixed-cost allocation (monthly, closed months, one-time full or spread), planned vs actual, partner split and rounding, YTD, cash and bank balances, transfers, the low-cash warning, the daily view, to-do urgency, validation, CSV escaping, the Sheets store, and MO Villa (nights, commission and payout, splitting stays across months, double booking, monthly villa profit, occupancy, per-room profit, cash and combined profit).
 
 ---
 
 ## 8. MO Villa
 
-Screen: **More → MO Villa** (partners only), with four views: **Bookings**, **Costs**, **Summary** and **Calendar**.
+Screen: **More → MO Villa** (owner only), with four views: **Bookings**, **Costs**, **Summary** and **Calendar**.
 
 ### MO_Villa tab (one row per booking or villa cost)
 | Column | Booking | Cost |
@@ -257,14 +260,14 @@ Screen: **More → MO Villa** (partners only), with four views: **Bookings**, **
 ### Links to the rest of the app
 - **Cash:** a booking marked **Received** adds its `net_payout` to `received_to` on `payout_date`. Villa costs reduce the `paid_from` account on their date.
 - **Dashboard:** villa net profit, occupancy, check-ins in the next 7 days, pending payouts, and total profit (Cafe + Villa).
-- **Profit page:** "Business profit: Cafe + Villa". **Partner shares on the dashboard and profit page are calculated on the combined total.**
+- **Profit page:** "Business profit: Cafe + Villa" (owner only). **Partner share = Cafe net profit × cafe % (`partners`) + Villa net profit × villa % (`villa_partners`).** With the defaults, Rajitha gets 50% of cafe profit plus 100% of villa profit, and Janith gets 50% of cafe profit.
 - **To-do:** each task can be linked to a booking.
 
 ---
 
 ## 9. Opening budget & partner capital
 
-Screen: **More → Capital** (partners only).
+Screen: **More → Capital** (partners; only the owner sees MO Villa and shared ("Both") entries).
 
 **Capital tab:** `capital_id, date, partner, business (MO Cafe / MO Villa / Both), description, amount, paid_into (Bank / Petty cash / Paid directly), notes`
 

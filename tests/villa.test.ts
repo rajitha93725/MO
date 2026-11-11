@@ -4,9 +4,9 @@ import {
   nightsBetween, nightsByMonth, pendingPayouts, splitAmount, upcomingCheckIns, villaMonth,
 } from "../src/lib/calc/villa";
 import { accountBalance } from "../src/lib/calc/cash";
-import { combinedMonth } from "../src/lib/calc/combined";
+import { combinedMonth, profitPartners } from "../src/lib/calc/combined";
 import { parseCategoryList } from "../src/lib/settings";
-import { settings } from "./fixtures";
+import { order, settings } from "./fixtures";
 import type { VillaRecord } from "../src/lib/types";
 
 const blank: VillaRecord = {
@@ -173,13 +173,31 @@ describe("links to the rest of the app", () => {
     expect(upcomingCheckIns(recs, "2026-12-28").length).toBe(2);
     expect(upcomingCheckIns(recs, "2027-01-02").length).toBe(1);
   });
-  it("combined profit = cafe + villa, shares on the total", () => {
+  it("combined profit = cafe + villa; villa profit goes to villa_partners (default Rajitha 100%)", () => {
     const s = settings();
     const c = combinedMonth("2027-01", { orders: [], dailyCosts: [], fixedCosts: [], fixedPayments: [], settings: s }, recs);
     expect(c.cafe).toBe(0);
     expect(c.villa).toBe(30_000 - 4_500 - 3_000);
     expect(c.total).toBe(c.villa);
-    expect(c.shares.map((x) => x.amount)).toEqual([11_250, 11_250]);
+    expect(c.shares.map((x) => [x.name, x.amount])).toEqual([["Rajitha", 22_500], ["Janith", 0]]);
+  });
+  it("each partner gets cafe % of cafe profit + villa % of villa profit, summing to the total", () => {
+    const s = settings({ villa_partners: "Rajitha:70,Janith:30" });
+    const cafe = { orders: [order({ date: "2027-01-05", qty: 1, unit_price: 10_001, unit_cost: 0 })], dailyCosts: [], fixedCosts: [], fixedPayments: [], settings: s };
+    const c = combinedMonth("2027-01", cafe, recs);
+    expect(c.cafe).toBe(10_001);
+    const r = c.shares.find((x) => x.name === "Rajitha")!, j = c.shares.find((x) => x.name === "Janith")!;
+    expect(r.villa + j.villa).toBe(22_500);
+    expect([r.villa, j.villa]).toEqual([15_750, 6_750]);
+    expect(r.cafe + j.cafe).toBe(10_001);
+    expect(r.amount + j.amount).toBe(c.total);
+  });
+  it("a villa-only partner is listed after the cafe partners", () => {
+    const s = settings({ villa_partners: "Rajitha:60,Amal:40" });
+    expect(profitPartners(s).map((p) => [p.name, p.cafePct, p.villaPct])).toEqual([["Rajitha", 50, 60], ["Janith", 50, 0], ["Amal", 0, 40]]);
+  });
+  it("villa_partners must total 100%", () => {
+    expect(() => settings({ villa_partners: "Rajitha:90" })).toThrow(/villa_partners/);
   });
   it("calendar grid marks booked nights only", () => {
     const g = calendarGrid("2027-01", recs, ["Room 1", "Room 2"]);
