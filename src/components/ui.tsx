@@ -5,22 +5,9 @@ import type { ActionResult } from "@/app/actions";
 import { toCsv } from "./csv";
 
 export function Logo({ size = 40 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100" role="img" aria-label="MO">
-      <rect width="100" height="100" rx="22" fill="#E8411E" />
-      <g transform="rotate(-7 50 50)" fill="none" strokeLinecap="round" strokeLinejoin="round">
-        <g stroke="#111">
-          <path d="M13 70 L21 29 L33 53 L45 29 L51 70" strokeWidth="17" />
-          <ellipse cx="73" cy="50" rx="13" ry="19" strokeWidth="17" />
-          <path d="M21 76 L21 84 M51 76 L51 88 M80 72 L80 80" strokeWidth="6" />
-        </g>
-        <g stroke="#fff">
-          <path d="M13 70 L21 29 L33 53 L45 29 L51 70" strokeWidth="8.5" />
-          <ellipse cx="73" cy="50" rx="13" ry="19" strokeWidth="8.5" />
-        </g>
-      </g>
-    </svg>
-  );
+  // MO Stay · Eatery logo (public/logo.png, made from logo/MO logo, option 3@2x.png)
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src="/logo.png" width={size} height={size} alt="MO" style={{ borderRadius: Math.round(size * 0.22), display: "block" }} />;
 }
 
 /** Tap-to-open formula tooltip (works on phones, unlike title=). */

@@ -3,7 +3,7 @@
 Mobile-first Next.js app for the daily operations of MO Cafe & Villa: orders, costs, profit, cash and bank, to-dos.
 Currency is LKR (whole rupees). The data lives in a Google Sheet, one tab per entity.
 
-- **Brand:** the "MO" graffiti logo (white letters, black outline) on Vermilion `#E8411E`. Files: `public/logo.svg` and `src/app/icon.svg`.
+- **Brand:** the "MO · Stay · Eatery" logo (white letters, black outline) on red `#D7141A`. Original: `logo/MO logo, option 3@2x.png`; app copies: `public/logo.png` (header/login), `src/app/icon.png` (browser tab) and `src/app/apple-icon.png` (phone home screen).
 - **Stack:** Next.js 15 (App Router, server actions), NextAuth (Google sign-in), Google Sheets REST API through a service account, Recharts, Vitest.
 
 ---
