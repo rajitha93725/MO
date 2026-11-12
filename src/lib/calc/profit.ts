@@ -13,8 +13,9 @@ export const FORMULAS = {
     "Fixed costs = monthly fixed costs active this month (start_month ≤ month ≤ end_month, not a closed month) + one-time costs allocated to this month (Settings: one_time_allocation)",
   totalCosts: "Total costs = Daily costs + Fixed costs",
   netProfit: "Net profit = Sales − Total costs",
+  dayNetProfit: "Expected cafe net profit (day) = Total sales of the day − Food cost of the day (qty × menu unit_cost). Daily and fixed costs are taken off in the monthly net profit",
   netMargin: "Net margin = Net profit ÷ Sales (shown as \"-\" when Sales = 0)",
-  partnerShare: "Partner share = Net profit × partner % (Settings: partners)",
+  partnerShare: "Partner share (monthly) = (Month's total sales − (Month's daily costs + Month's fixed costs)) × partner % (Settings: partners)",
   foodCheck:
     "Food cost check = Actual purchases (Daily costs in Settings: food_check_categories) − Menu-based food cost. Positive = waste / stock build-up / price changes",
   grossProfit: "Gross profit = Sales − Food cost (menu-based)",

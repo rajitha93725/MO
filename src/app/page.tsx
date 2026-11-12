@@ -4,7 +4,7 @@ import { repo } from "@/lib/data/repo";
 import { today } from "@/lib/today";
 import { daySummary, activeTodos, todoUrgency } from "@/lib/calc/daily";
 import { accountBalance, isPettyLow, CASH_FORMULAS } from "@/lib/calc/cash";
-import { monthProfit, profitTable, yearToDate, FORMULAS } from "@/lib/calc/profit";
+import { monthProfit, profitTable, FORMULAS } from "@/lib/calc/profit";
 import { unpaidFixedCosts } from "@/lib/calc/fixedCosts";
 import { addMonths, daysInMonth, monthLabel, monthOf } from "@/lib/calc/dates";
 import { pct, rs } from "@/lib/calc/money";
@@ -13,7 +13,7 @@ import { DailyMealChart, ProfitPlanChart } from "@/components/Charts";
 import { MEALS } from "@/lib/types";
 import { StorageError } from "@/components/StorageError";
 import { pendingPayouts, upcomingCheckIns, villaMonth, VILLA_FORMULAS } from "@/lib/calc/villa";
-import { combinedMonth, combinedTable, combinedTotals, ytdRange, shareLabel, COMBINED_FORMULA } from "@/lib/calc/combined";
+import { combinedMonth, COMBINED_FORMULA } from "@/lib/calc/combined";
 
 export default async function Dashboard({ searchParams }: { searchParams: Promise<{ denied?: string }> }) {
   const user = await requirePage("any");
@@ -38,9 +38,6 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const checkIns = upcomingCheckIns(villa, t, 7);
   const pending = pendingPayouts(villa);
   const combined = combinedMonth(month, input, villa);
-  const [yFrom, yTo] = ytdRange(month < settings.opening_month ? settings.opening_month : month, settings.opening_month);
-  const combinedYtd = combinedTotals(combinedTable(yFrom, yTo, input, villa), settings);
-  const cafeYtd = yearToDate(month < settings.opening_month ? settings.opening_month : month, input);
 
   const daily = daysInMonth(month).map((d) => {
     const s = daySummary(d, orders, settings);
@@ -48,6 +45,13 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     for (const m of s.meals) o[m.meal] = m.sales;
     return o;
   });
+
+  // Every day of the month up to today that had orders, newest first.
+  const perDay = daysInMonth(month)
+    .filter((d) => d <= t)
+    .map((d) => daySummary(d, orders, settings))
+    .filter((d) => d.orders > 0)
+    .reverse();
 
   const from = settings.opening_month < month ? settings.opening_month : month;
   const to = addMonths(month, 0) < addMonths(from, 11) ? addMonths(from, 11) : month;
@@ -61,7 +65,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const nextTodos = activeTodos(user.owner ? todos : todos.filter((td) => !td.booking_id)).slice(0, 5);
   const unpaid = unpaidFixedCosts(month, fixedCosts, fixedPayments, settings);
   const isPartner = user.role === "partner";
-  // Villa figures, cash balances and villa-based shares are for the owner only.
+  // Villa figures and cash balances are for the owner only. Partner shares are on the Profit page (monthly).
   const isOwner = user.owner;
 
   return (
@@ -87,9 +91,12 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           </div>
         </div>
         <div className="card stat">
-          <div className="label">Today&apos;s food cost % <Tip text={FORMULAS.foodCostPct} /></div>
-          <div className="value">{pct(day.foodCost, day.sales)}</div>
-          <div className="sub">Target ≤ {settings.food_cost_target_pct}%</div>
+          <div className="label">Expected cafe net profit · today <Tip text={FORMULAS.dayNetProfit} /></div>
+          <div className={`value ${day.grossProfit < 0 ? "neg" : ""}`}>{rs(day.grossProfit)}</div>
+          <div className="sub">
+            Food cost {rs(day.foodCost)} ({pct(day.foodCost, day.sales)}) ·{" "}
+            <span className={day.foodCostPct !== null && day.foodCostPct * 100 > settings.food_cost_target_pct ? "neg" : ""}>target ≤ {settings.food_cost_target_pct}%</span>
+          </div>
         </div>
         {isOwner && <>
         <div className={`card stat ${low ? "warn" : ""}`}>
@@ -123,26 +130,6 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               <div className="sub">Gross {rs(vm.gross)} · <Link href="/villa?view=summary">details</Link></div>
             </div>
           )}
-          {isOwner && combined.shares.map((s) => {
-            const y = combinedYtd.shares.find((x) => x.name === s.name)?.amount ?? 0;
-            return (
-              <div className="card stat" key={s.name}>
-                <div className="label">{s.name}&apos;s share ({shareLabel(s)}) <Tip text={COMBINED_FORMULA} /></div>
-                <div className={`value ${s.amount < 0 ? "neg" : ""}`}>{rs(s.amount)}</div>
-                <div className="sub">Cafe {rs(s.cafe)} + Villa {rs(s.villa)} · YTD {rs(y)}</div>
-              </div>
-            );
-          })}
-          {!isOwner && mp.partnerShares.map((s) => {
-            const y = cafeYtd.partnerShares.find((x) => x.name === s.name)?.amount ?? 0;
-            return (
-              <div className="card stat" key={s.name}>
-                <div className="label">{s.name}&apos;s cafe share ({s.pct}%) <Tip text={FORMULAS.partnerShare} /></div>
-                <div className={`value ${s.amount < 0 ? "neg" : ""}`}>{rs(s.amount)}</div>
-                <div className="sub">YTD {rs(y)}</div>
-              </div>
-            );
-          })}
         </div>
       )}
 
@@ -196,6 +183,46 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
             <ProfitPlanChart data={chartMonths} />
           </div>
         )}
+      </div>
+
+      <div className="card">
+        <div className="spread"><b>Total sales per day · {monthLabel(month)}</b><Link className="small" href="/sales">Details →</Link></div>
+        <div className="table-wrap" style={{ marginTop: 8 }}>
+          <table className="small">
+            <thead>
+              <tr>
+                <th>Date</th><th className="num">Orders</th><th className="num">Total sales</th>
+                <th className="num">Food cost <Tip text={FORMULAS.foodCost.replace("month", "day")} /></th><th className="num">Food cost %</th>
+                <th className="num">Expected net profit <Tip text={FORMULAS.dayNetProfit} /></th>
+              </tr>
+            </thead>
+            <tbody>
+              {perDay.length === 0 && <tr><td colSpan={6} className="muted">No sales yet this month</td></tr>}
+              {perDay.map((d) => (
+                <tr key={d.date}>
+                  <td>{d.date === t ? <b>{d.date} (today)</b> : d.date}</td>
+                  <td className="num">{d.orders}</td>
+                  <td className="num">{rs(d.sales)}</td>
+                  <td className="num">{rs(d.foodCost)}</td>
+                  <td className="num">{pct(d.foodCost, d.sales)}</td>
+                  <td className={`num ${d.grossProfit < 0 ? "neg" : ""}`}>{rs(d.grossProfit)}</td>
+                </tr>
+              ))}
+            </tbody>
+            {perDay.length > 0 && (
+              <tfoot>
+                <tr>
+                  <th>Month so far</th>
+                  <th className="num">{perDay.reduce((a, d) => a + d.orders, 0)}</th>
+                  <th className="num">{rs(perDay.reduce((a, d) => a + d.sales, 0))}</th>
+                  <th className="num">{rs(perDay.reduce((a, d) => a + d.foodCost, 0))}</th>
+                  <th className="num">{pct(perDay.reduce((a, d) => a + d.foodCost, 0), perDay.reduce((a, d) => a + d.sales, 0))}</th>
+                  <th className="num">{rs(perDay.reduce((a, d) => a + d.grossProfit, 0))}</th>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
       </div>
 
       <div className="grid md-2">
