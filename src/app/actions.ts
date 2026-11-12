@@ -12,15 +12,21 @@ import {
   type DailyCost, type FixedCost, type FixedPayment, type MenuItem, type OrderLine, type TargetPeriod, type Todo, type VillaRecord,
 } from "@/lib/types";
 import { commissionFor, findOverlaps, netPayoutFor, nightsBetween } from "@/lib/calc/villa";
+import type { ReceiptOrder } from "@/lib/receipt";
 import { UBER_COST_CATEGORY, uberCommission, uberCostId, uberPrice } from "@/lib/calc/uber";
 
-export type ActionResult = { ok: true; message?: string; id?: string } | { ok: false; errors: string[] };
+export type ActionResult =
+  | { ok: true; message?: string; id?: string; receipt?: ReceiptOrder }
+  | { ok: false; errors: string[] };
 
-async function run(fn: () => Promise<string | void | { message: string; id: string }>, paths: string[] = ["/"]): Promise<ActionResult> {
+async function run(
+  fn: () => Promise<string | void | { message: string; id: string; receipt?: ReceiptOrder }>,
+  paths: string[] = ["/"],
+): Promise<ActionResult> {
   try {
     const r = (await fn()) ?? undefined;
     for (const p of paths) revalidatePath(p, "layout");
-    return typeof r === "object" ? { ok: true, message: r.message, id: r.id } : { ok: true, message: r };
+    return typeof r === "object" ? { ok: true, message: r.message, id: r.id, receipt: r.receipt } : { ok: true, message: r };
   } catch (e) {
     if (e instanceof ValidationError) return { ok: false, errors: e.errors };
     return { ok: false, errors: [e instanceof Error ? e.message : String(e)] };
@@ -73,6 +79,11 @@ export async function saveOrder(input: OrderInput): Promise<ActionResult> {
     await repo.insert("orders", rows);
     const total = rows.reduce((t, r) => t + r.line_total, 0);
     const fmt = (n: number) => `Rs ${n.toLocaleString("en-US")}`;
+    // Everything needed to print the receipt straight away, without reading the order back.
+    const receipt: ReceiptOrder = {
+      order_id, date, time, meal, payment_method, notes: rows[0].notes,
+      lines: rows.map((r) => ({ item_name: r.item_name, qty: r.qty, unit_price: r.unit_price, line_total: r.line_total })),
+    };
     if (uber) {
       const commission = uberCommission(total, settings);
       const cost: DailyCost = {
@@ -87,9 +98,9 @@ export async function saveOrder(input: OrderInput): Promise<ActionResult> {
         entered_by: user.email,
       };
       if (commission > 0) await repo.insert("dailyCosts", [cost]);
-      return { message: `Uber order saved · ${fmt(total)} · commission ${fmt(commission)} recorded`, id: order_id };
+      return { message: `Uber order saved · ${fmt(total)} · commission ${fmt(commission)} recorded`, id: order_id, receipt };
     }
-    return { message: `Order saved · ${fmt(total)}`, id: order_id };
+    return { message: `Order saved · ${fmt(total)}`, id: order_id, receipt };
   });
 }
 

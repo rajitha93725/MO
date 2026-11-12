@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { saveOrder } from "@/app/actions";
 import { useAction } from "@/components/ui";
 import { MEALS, PAYMENT_METHODS, type Meal, type MenuItem, type OrderChannel, type PaymentMethod } from "@/lib/types";
 import { uberCommission, uberPrice } from "@/lib/calc/uber";
+import { printReceipt } from "@/components/printReceipt";
+import type { ReceiptOrder, ReceiptSettings } from "@/lib/receipt";
 
 const rs = (n: number) => `Rs ${Math.round(n).toLocaleString("en-US")}`;
 
@@ -17,9 +18,11 @@ export interface UberSettings {
 }
 
 export function OrderEntry({
-  menu, today, defaultMeal, categories: settingCats, uber: uberSettings, defaultChannel = "Cafe",
-}: { menu: MenuItem[]; today: string; defaultMeal: Meal; categories: string[]; uber: UberSettings; defaultChannel?: OrderChannel }) {
-  const router = useRouter();
+  menu, today, defaultMeal, categories: settingCats, uber: uberSettings, defaultChannel = "Cafe", receiptSettings,
+}: {
+  menu: MenuItem[]; today: string; defaultMeal: Meal; categories: string[]; uber: UberSettings;
+  defaultChannel?: OrderChannel; receiptSettings: ReceiptSettings;
+}) {
   // Settings order first; then any category in use but not listed in Settings.
   const categories = useMemo(
     () => [...settingCats.filter((c) => menu.some((m) => m.category === c)), ...Array.from(new Set(menu.map((m) => m.category))).filter((c) => !settingCats.includes(c))],
@@ -37,6 +40,7 @@ export function OrderEntry({
   // Breakfast opens the first category (e.g. Brunch); other meals open the second one if there is one.
   const [cat, setCat] = useState<string>((defaultMeal === "Breakfast" ? categories[0] : categories[1] ?? categories[0]) ?? "");
   const [printAfter, setPrintAfter] = useState(true);
+  const [lastReceipt, setLastReceipt] = useState<ReceiptOrder | null>(null);
   useEffect(() => {
     try {
       const v = localStorage.getItem(PRINT_KEY);
@@ -73,7 +77,11 @@ export function OrderEntry({
         setCart({});
         setNotes("");
         setShowCart(false);
-        if (printAfter && r.id) router.push(`/receipt/${encodeURIComponent(r.id)}?print=1`);
+        // Print right here (no page change), so the next order can start straight away.
+        if (r.receipt) {
+          setLastReceipt(r.receipt);
+          if (printAfter) printReceipt(r.receipt, receiptSettings);
+        }
       },
     );
 
@@ -134,6 +142,13 @@ export function OrderEntry({
       </div>
 
       {ui}
+      {lastReceipt && (
+        <div className="row small no-print">
+          <span className="muted">Last order {lastReceipt.order_id}</span>
+          <button type="button" className="small" onClick={() => printReceipt(lastReceipt, receiptSettings)}>🖨 Print again</button>
+          <a className="small" href={`/receipt/${encodeURIComponent(lastReceipt.order_id)}`}>View</a>
+        </div>
+      )}
 
       <div className="cart-bar">
         <div className="inner stack">

@@ -220,7 +220,7 @@ tests/                      unit tests (profit, cash, daily, validation, CSV)
 ```bash
 npm test
 ```
-121 tests cover the profit formulas, fixed-cost allocation (monthly, closed months, one-time full or spread), planned vs actual, partner split and rounding, YTD, cash and bank balances, transfers, the low-cash warning, the daily view, to-do urgency, validation, CSV escaping, the Sheets store, and MO Villa (nights, commission and payout, splitting stays across months, double booking, monthly villa profit, occupancy, per-room profit, cash and combined profit).
+125 tests cover the profit formulas, fixed-cost allocation (monthly, closed months, one-time full or spread), planned vs actual, partner split and rounding, YTD, cash and bank balances, transfers, the low-cash warning, the daily view, to-do urgency, validation, CSV escaping, the Sheets store, and MO Villa (nights, commission and payout, splitting stays across months, double booking, monthly villa profit, occupancy, per-room profit, cash and combined profit).
 
 ---
 
@@ -305,11 +305,12 @@ All figures come from the same calculations as the other pages (`src/lib/calc/re
 
 ## 11. Receipts
 
-After **Save** on the New order screen, the receipt opens and the print dialog appears straight away. The **Print receipt after saving** checkbox in the cart turns this on or off, and each phone or tablet remembers its own choice.
+After **Save** on the New order screen, the receipt prints straight from that screen. The print dialog opens, the app stays on New order, and the cart is already empty for the next order. The receipt uses the data from the save itself, so it never has to wait for the sheet. **🖨 Print again** reprints the last order. The **Print receipt after saving** checkbox in the cart turns this on or off, and each phone or tablet remembers its own choice.
 
-- Reprint any order from **Sales** with the 🖨 button next to it.
+- Reprint any order from **Sales** with the 🖨 button next to it. If a receipt page opens just after a save, it reads the sheet directly when its cached copy doesn't have the order yet.
 - The receipt shows the date, time, meal, order number, each item (qty × price), total, payment method, item count and the order note.
 - Header, footer and paper width come from Settings (`receipt_name`, `receipt_address`, `receipt_footer`, `receipt_width_mm`).
+- Browsers always show the print dialog (a web page can't print silently). For one-tap printing on a counter PC, start Chrome with `--kiosk-printing` and set the receipt printer as the default.
 - Printing uses the device's normal print dialog, so it works with any printer the phone, tablet or computer can print to: a Bluetooth or USB receipt printer (pick it in the dialog), a Wi-Fi printer, or "Save as PDF".
 
 ## 12. Uber orders

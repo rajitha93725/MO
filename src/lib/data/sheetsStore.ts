@@ -149,6 +149,11 @@ export class SheetsStore implements DataStore {
     return (await this.load(tab)).rows.map((r) => ({ ...r }));
   }
 
+  /** Straight from Google, skipping the cache (e.g. a row saved a moment ago by another server). */
+  async listFresh(tab: TabKey): Promise<Row[]> {
+    return (await this.fetchTab(tab)).rows.map((r) => ({ ...r }));
+  }
+
   async insert(tab: TabKey, rows: Row[]): Promise<void> {
     if (!rows.length) return;
     const { headers, lastDataRow } = await this.fetchTab(tab); // position against fresh data

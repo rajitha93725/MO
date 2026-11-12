@@ -15,4 +15,6 @@ export interface DataStore {
   remove(tab: TabKey, id: string): Promise<void>;
   /** Replace all rows of a tab (used for Settings / Targets / Users editing). */
   replaceAll(tab: TabKey, rows: Row[]): Promise<void>;
+  /** Optional: read straight from storage, skipping any cache. */
+  listFresh?(tab: TabKey): Promise<Row[]>;
 }

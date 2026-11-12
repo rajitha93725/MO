@@ -15,6 +15,11 @@ export const repo = {
   menu: async () => as<MenuItem>(await getStore().list("menu")),
   priceHistory: async () => as<PriceHistory>(await getStore().list("priceHistory")),
   orders: async () => as<OrderLine>(await getStore().list("orders")),
+  /** Orders read without the cache. */
+  ordersFresh: async () => {
+    const s = getStore();
+    return as<OrderLine>(await (s.listFresh ? s.listFresh("orders") : s.list("orders")));
+  },
   dailyCosts: async () => as<DailyCost>(await getStore().list("dailyCosts")),
   fixedCosts: async () => as<FixedCost>(await getStore().list("fixedCosts")),
   fixedPayments: async () => as<FixedPayment>(await getStore().list("fixedPayments")),

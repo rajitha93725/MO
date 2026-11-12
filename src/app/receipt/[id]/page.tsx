@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { requirePage } from "@/lib/auth";
 import { repo } from "@/lib/data/repo";
-import { groupOrders } from "@/lib/calc/report";
-import { num } from "@/lib/calc/money";
+import { receiptHtml, receiptPageCss, type ReceiptOrder } from "@/lib/receipt";
 import { StorageError } from "@/components/StorageError";
 import { AutoPrint, PrintReceiptButton } from "./ReceiptActions";
 
@@ -17,7 +16,15 @@ export default async function ReceiptPage({ params, searchParams }: { params: Pr
     return <StorageError error={e} />;
   }
   const orderId = decodeURIComponent(id);
-  const lines = orders.filter((o) => o.order_id === orderId);
+  let lines = orders.filter((o) => o.order_id === orderId);
+  // Just saved? This server's cached copy may not have it yet: read the sheet directly.
+  if (!lines.length) {
+    try {
+      lines = (await repo.ordersFresh()).filter((o) => o.order_id === orderId);
+    } catch (e) {
+      return <StorageError error={e} />;
+    }
+  }
   if (!lines.length) {
     return (
       <div className="stack">
@@ -27,51 +34,25 @@ export default async function ReceiptPage({ params, searchParams }: { params: Pr
       </div>
     );
   }
-  const [o] = groupOrders(lines);
-  const notes = lines.find((l) => l.notes)?.notes ?? "";
+  const o = lines[0];
+  const order: ReceiptOrder = {
+    order_id: o.order_id, date: o.date, time: o.time, meal: o.meal, payment_method: o.payment_method,
+    notes: lines.find((l) => l.notes)?.notes ?? "",
+    lines: lines.map((l) => ({ item_name: l.item_name, qty: l.qty, unit_price: l.unit_price, line_total: l.line_total })),
+  };
   const width = settings.receipt_width_mm;
 
   return (
     <div className="stack">
       {/* Paper size for this page only (Settings: receipt_width_mm). */}
-      <style>{`@page { size: ${width}mm auto; margin: 3mm; } @media print { .receipt { width: auto; max-width: none; } }`}</style>
+      <style>{`${receiptPageCss(width)} @media print { .receipt { width: auto !important; max-width: none; } }`}</style>
       {print === "1" && <AutoPrint />}
       <div className="row no-print">
         <PrintReceiptButton />
         <Link href="/order" className="btn primary">+ New order</Link>
         <Link href={`/sales?date=${o.date}`} className="btn">Sales</Link>
       </div>
-
-      <div className="receipt" style={{ width: `${width}mm` }}>
-        <div className="r-center">
-          <div className="r-title">{settings.receipt_name}</div>
-          {settings.receipt_address && <div>{settings.receipt_address}</div>}
-        </div>
-        <div className="r-rule" />
-        <div className="r-row"><span>{o.date} {o.time}</span><span>{o.meal}</span></div>
-        <div>Order {o.order_id}</div>
-        <div className="r-rule" />
-        <table>
-          <tbody>
-            {lines.map((l) => (
-              <tr key={l.line_id}>
-                <td>
-                  {l.item_name}
-                  <div className="r-small">{l.qty} × {num(l.unit_price)}</div>
-                </td>
-                <td className="num">{num(l.line_total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="r-rule" />
-        <div className="r-row r-total"><span>TOTAL (Rs)</span><span>{num(o.total)}</span></div>
-        <div className="r-row"><span>Paid by</span><span>{o.payment_method}</span></div>
-        <div className="r-row"><span>Items</span><span>{o.qty}</span></div>
-        {notes && <div className="r-small">Note: {notes}</div>}
-        <div className="r-rule" />
-        {settings.receipt_footer && <div className="r-center">{settings.receipt_footer}</div>}
-      </div>
+      <div className="receipt" style={{ width: `${width}mm` }} dangerouslySetInnerHTML={{ __html: receiptHtml(order, settings) }} />
     </div>
   );
 }

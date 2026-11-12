@@ -24,6 +24,12 @@ export default async function OrderPage({ searchParams }: { searchParams: Promis
         categories={categories}
         uber={uber}
         defaultChannel={channel === "uber" ? "Uber" : "Cafe"}
+        receiptSettings={{
+          receipt_name: settings.receipt_name,
+          receipt_address: settings.receipt_address,
+          receipt_footer: settings.receipt_footer,
+          receipt_width_mm: settings.receipt_width_mm,
+        }}
       />
     );
   } catch (e) {
