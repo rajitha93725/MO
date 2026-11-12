@@ -76,7 +76,31 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <Link href="/order" className="btn primary">+ New order</Link>
       </div>
 
-      <div className="grid cols-4">
+      {isOwner && (
+        <>
+          <h2 className="home-section">📊 MO total · {monthLabel(month)}</h2>
+          <div className="grid cols-3">
+            <div className="card stat">
+              <div className="label">Total profit · {monthLabel(month)} <Tip text={COMBINED_FORMULA} /></div>
+              <div className={`value ${combined.total < 0 ? "neg" : ""}`}>{rs(combined.total)}</div>
+              <div className="sub">Cafe {rs(combined.cafe)} + Villa {rs(combined.villa)}</div>
+            </div>
+          <div className={`card stat ${low ? "warn" : ""}`}>
+            <div className="label">Petty cash <Tip text={CASH_FORMULAS.petty} /></div>
+            <div className="value">{rs(petty.balance)}</div>
+            <div className="sub">{low ? <b className="neg">⚠ Low – below {rs(settings.petty_low_threshold)}</b> : `Warn below ${rs(settings.petty_low_threshold)}`}</div>
+          </div>
+          <div className="card stat">
+            <div className="label">Bank <Tip text={CASH_FORMULAS.bank} /></div>
+            <div className="value">{rs(bank.balance)}</div>
+            <div className="sub">All time</div>
+          </div>
+          </div>
+        </>
+      )}
+
+      <h2 className="home-section" id="cafe">☕ MO Cafe</h2>
+      <div className="grid cols-3">
         <div className="card stat">
           <div className="label">Today&apos;s sales <Tip text={FORMULAS.sales.replace("month", "day")} /></div>
           <div className="value">{rs(day.sales)}</div>
@@ -98,70 +122,20 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
             <span className={day.foodCostPct !== null && day.foodCostPct * 100 > settings.food_cost_target_pct ? "neg" : ""}>target ≤ {settings.food_cost_target_pct}%</span>
           </div>
         </div>
-        {isOwner && <>
-        <div className={`card stat ${low ? "warn" : ""}`}>
-          <div className="label">Petty cash <Tip text={CASH_FORMULAS.petty} /></div>
-          <div className="value">{rs(petty.balance)}</div>
-          <div className="sub">{low ? <b className="neg">⚠ Low – below {rs(settings.petty_low_threshold)}</b> : `Warn below ${rs(settings.petty_low_threshold)}`}</div>
-        </div>
-        <div className="card stat">
-          <div className="label">Bank <Tip text={CASH_FORMULAS.bank} /></div>
-          <div className="value">{rs(bank.balance)}</div>
-          <div className="sub">All time</div>
-        </div>
-        </>}
-      </div>
-
-      {isPartner && (
-        <div className="grid cols-4">
-          <div className="card stat">
-            <div className="label">Cafe net profit · {monthLabel(month)} <Tip text={`${FORMULAS.netProfit}. ${FORMULAS.vsPlan}`} /></div>
-            <div className={`value ${mp.netProfit < 0 ? "neg" : ""}`}>{rs(mp.netProfit)}</div>
-            <div className="sub">
-              {mp.closed ? "Closed month" : mp.plannedNetProfit ? (
-                <span className={mp.profitVsPlan >= 0 ? "pos" : "neg"}>{mp.profitVsPlan >= 0 ? "▲" : "▼"} {rs(Math.abs(mp.profitVsPlan))} vs plan {rs(mp.plannedNetProfit)}</span>
-              ) : "No plan for this month"}
-            </div>
-          </div>
-          {isOwner && (
+        {isPartner && (
+          <>
             <div className="card stat">
-              <div className="label">Villa net profit · {monthLabel(month)} <Tip text={VILLA_FORMULAS.netProfit} /></div>
-              <div className={`value ${vm.netProfit < 0 ? "neg" : ""}`}>{rs(vm.netProfit)}</div>
-              <div className="sub">Gross {rs(vm.gross)} · <Link href="/villa?view=summary">details</Link></div>
+              <div className="label">Cafe net profit · {monthLabel(month)} <Tip text={`${FORMULAS.netProfit}. ${FORMULAS.vsPlan}`} /></div>
+              <div className={`value ${mp.netProfit < 0 ? "neg" : ""}`}>{rs(mp.netProfit)}</div>
+              <div className="sub">
+                {mp.closed ? "Closed month" : mp.plannedNetProfit ? (
+                  <span className={mp.profitVsPlan >= 0 ? "pos" : "neg"}>{mp.profitVsPlan >= 0 ? "▲" : "▼"} {rs(Math.abs(mp.profitVsPlan))} vs plan {rs(mp.plannedNetProfit)}</span>
+                ) : "No plan for this month"}
+              </div>
             </div>
-          )}
-        </div>
-      )}
-
-      {isOwner && (
-        <div className="grid cols-4">
-          <div className="card stat">
-            <div className="label">Villa occupancy · {monthLabel(month)} <Tip text={VILLA_FORMULAS.occupancy} /></div>
-            <div className="value">{vm.occupancy === null ? "-" : `${(vm.occupancy * 100).toFixed(0)}%`}</div>
-            <div className="sub">{vm.bookedNights} of {settings.villa_rooms.length * vm.days} room-nights</div>
-          </div>
-          <div className="card stat">
-            <div className="label">Check-ins next 7 days</div>
-            <div className="value">{checkIns.length}</div>
-            <div className="sub">
-              {checkIns.slice(0, 3).map((b) => (
-                <div key={b.record_id}>{b.check_in.slice(5)} · {b.room_number} · {b.guest_name || b.platform}</div>
-              ))}
-              {checkIns.length === 0 && "None"}
-            </div>
-          </div>
-          <div className={`card stat ${pending.length ? "warn" : ""}`}>
-            <div className="label">Pending payouts <Tip text={VILLA_FORMULAS.payouts} /></div>
-            <div className="value">{rs(pending.reduce((a, b) => a + b.net_payout, 0))}</div>
-            <div className="sub">{pending.length} booking{pending.length === 1 ? "" : "s"} · <Link href="/villa?view=bookings">view</Link></div>
-          </div>
-          <div className="card stat">
-            <div className="label">Total profit · {monthLabel(month)} <Tip text={COMBINED_FORMULA} /></div>
-            <div className={`value ${combined.total < 0 ? "neg" : ""}`}>{rs(combined.total)}</div>
-            <div className="sub">Cafe {rs(combined.cafe)} + Villa {rs(combined.villa)}</div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </div>
 
       <div className={`grid ${isPartner ? "md-2" : ""}`}>
         <div className="card">
@@ -187,7 +161,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
       <div className="card">
         <div className="spread"><b>Total sales per day · {monthLabel(month)}</b><Link className="small" href="/sales">Details →</Link></div>
-        <div className="table-wrap" style={{ marginTop: 8 }}>
+        <div className="table-wrap report-long" style={{ marginTop: 8, maxHeight: 380 }}>
           <table className="small">
             <thead>
               <tr>
@@ -225,6 +199,40 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </div>
       </div>
 
+      {isOwner && (
+        <>
+          <h2 className="home-section">🏡 MO Villa</h2>
+          <div className="grid cols-4">
+          <div className="card stat">
+            <div className="label">Villa net profit · {monthLabel(month)} <Tip text={VILLA_FORMULAS.netProfit} /></div>
+            <div className={`value ${vm.netProfit < 0 ? "neg" : ""}`}>{rs(vm.netProfit)}</div>
+            <div className="sub">Gross {rs(vm.gross)} · <Link href="/villa?view=summary">details</Link></div>
+          </div>
+          <div className="card stat">
+            <div className="label">Villa occupancy · {monthLabel(month)} <Tip text={VILLA_FORMULAS.occupancy} /></div>
+            <div className="value">{vm.occupancy === null ? "-" : `${(vm.occupancy * 100).toFixed(0)}%`}</div>
+            <div className="sub">{vm.bookedNights} of {settings.villa_rooms.length * vm.days} room-nights</div>
+          </div>
+          <div className="card stat">
+            <div className="label">Check-ins next 7 days</div>
+            <div className="value">{checkIns.length}</div>
+            <div className="sub">
+              {checkIns.slice(0, 3).map((b) => (
+                <div key={b.record_id}>{b.check_in.slice(5)} · {b.room_number} · {b.guest_name || b.platform}</div>
+              ))}
+              {checkIns.length === 0 && "None"}
+            </div>
+          </div>
+          <div className={`card stat ${pending.length ? "warn" : ""}`}>
+            <div className="label">Pending payouts <Tip text={VILLA_FORMULAS.payouts} /></div>
+            <div className="value">{rs(pending.reduce((a, b) => a + b.net_payout, 0))}</div>
+            <div className="sub">{pending.length} booking{pending.length === 1 ? "" : "s"} · <Link href="/villa?view=bookings">view</Link></div>
+          </div>
+          </div>
+        </>
+      )}
+
+      <h2 className="home-section">✅ To-dos & bills</h2>
       <div className="grid md-2">
         <div className="card">
           <div className="spread"><b>Next to-dos</b><Link className="small" href="/todo">All →</Link></div>

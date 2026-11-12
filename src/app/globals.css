@@ -280,3 +280,6 @@ table.cal td.cal-booked a { display: flex; align-items: center; justify-content:
 @media print {
   .receipt { border: 0; padding: 0; border-radius: 0; }
 }
+
+/* ---------- home page sections ---------- */
+.home-section { margin: 14px 0 -4px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 1.05rem; scroll-margin-top: 70px; }
