@@ -59,7 +59,7 @@ describe("cafe monthly report", () => {
 
   it("splits sales by meal, payment method and menu category, each adding up to sales", () => {
     expect(r.byMeal.map((m) => [m.name, m.amount, m.orders])).toEqual([["Breakfast", 2_000, 1], ["Lunch", 3_000, 1], ["Dinner", 1_000, 1]]);
-    expect(r.byPayment.map((m) => [m.name, m.amount, m.count])).toEqual([["Cash", 3_000, 1], ["Card", 1_000, 1], ["Bank transfer", 2_000, 1]]);
+    expect(r.byPayment.map((m) => [m.name, m.amount, m.count])).toEqual([["Cash", 3_000, 1], ["Card", 1_000, 1], ["Bank transfer", 2_000, 1], ["Uber", 0, 0]]);
     expect(r.byCategory.map((m) => [m.name, m.amount])).toEqual([["All day dining", 3_000], ["Drinks", 3_000]]);
     for (const g of [r.byMeal, r.byPayment, r.byCategory]) expect(g.reduce((a, x) => a + x.amount, 0)).toBe(r.profit.sales);
   });
@@ -86,7 +86,7 @@ describe("cafe monthly report", () => {
   it("an empty month gives zeros, not errors", () => {
     const e = cafeReport("2027-03", input, menu);
     expect([e.orders, e.tradingDays, e.avgOrderValue, e.bestDay, e.items.length]).toEqual([0, 0, null, null, 0]);
-    expect(e.byPayment.map((p) => p.amount)).toEqual([0, 0, 0]);
+    expect(e.byPayment.map((p) => p.amount)).toEqual([0, 0, 0, 0]);
   });
 });
 

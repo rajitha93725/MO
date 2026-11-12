@@ -4,8 +4,14 @@
 export type Meal = "Breakfast" | "Lunch" | "Dinner";
 export const MEALS: Meal[] = ["Breakfast", "Lunch", "Dinner"];
 
-export type PaymentMethod = "Cash" | "Card" | "Bank transfer";
+export type PaymentMethod = "Cash" | "Card" | "Bank transfer" | "Uber";
+/** Payment methods for cafe (dine-in / takeaway) orders. */
 export const PAYMENT_METHODS: PaymentMethod[] = ["Cash", "Card", "Bank transfer"];
+/** Every payment method, including Uber orders (Uber pays out to the bank). */
+export const ALL_PAYMENT_METHODS: PaymentMethod[] = [...PAYMENT_METHODS, "Uber"];
+
+/** Where an order came from. */
+export type OrderChannel = "Cafe" | "Uber";
 
 export type Account = "Petty cash" | "Bank";
 export const ACCOUNTS: Account[] = ["Petty cash", "Bank"];
@@ -222,6 +228,8 @@ export interface Settings {
   receipt_address: string;
   receipt_footer: string;
   receipt_width_mm: number;
+  uber_markup_pct: number;
+  uber_commission_pct: number;
 }
 
 /** Raw key/value row of the Settings tab. */

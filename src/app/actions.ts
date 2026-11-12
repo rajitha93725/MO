@@ -8,10 +8,11 @@ import { today, nowTime } from "@/lib/today";
 import { parsePartners, parseSettings } from "@/lib/settings";
 import {
   ACCOUNTS, ALL_ROOMS, BOOKING_STATUSES, CAPITAL_BUSINESSES, CAPITAL_PAID_INTO, MEALS, MOVED_BY, MOVEMENT_TYPES, PAID_BY,
-  PAYMENT_METHODS, PAYOUT_STATUSES, PRIORITIES, type CapitalContribution,
+  PAYMENT_METHODS, PAYOUT_STATUSES, type OrderChannel, PRIORITIES, type CapitalContribution,
   type DailyCost, type FixedCost, type FixedPayment, type MenuItem, type OrderLine, type TargetPeriod, type Todo, type VillaRecord,
 } from "@/lib/types";
 import { commissionFor, findOverlaps, netPayoutFor, nightsBetween } from "@/lib/calc/villa";
+import { UBER_COST_CATEGORY, uberCommission, uberCostId, uberPrice } from "@/lib/calc/uber";
 
 export type ActionResult = { ok: true; message?: string; id?: string } | { ok: false; errors: string[] };
 
@@ -29,6 +30,8 @@ async function run(fn: () => Promise<string | void | { message: string; id: stri
 // ---------------- Orders (partners + staff) ----------------
 
 export interface OrderInput {
+  /** "Uber" = Uber order: Uber prices, paid to Bank, commission saved as a daily cost. Default "Cafe". */
+  channel?: OrderChannel;
   meal: string;
   payment_method: string;
   notes?: string;
@@ -42,7 +45,8 @@ export async function saveOrder(input: OrderInput): Promise<ActionResult> {
     const settings = await repo.settings();
     const v = new V();
     const meal = v.oneOf("Meal", input.meal, MEALS);
-    const payment_method = v.oneOf("Payment method", input.payment_method, PAYMENT_METHODS);
+    const uber = input.channel === "Uber";
+    const payment_method = uber ? "Uber" : v.oneOf("Payment method", input.payment_method, PAYMENT_METHODS);
     const date = v.date("Date", input.date || today(settings));
     v.check(input.lines.length > 0, "Add at least one item");
     input.lines.forEach((l, i) => v.qty(`Quantity (line ${i + 1})`, l.qty));
@@ -55,19 +59,37 @@ export async function saveOrder(input: OrderInput): Promise<ActionResult> {
       const m = menu.find((x) => x.item_id === l.item_id);
       if (!m) throw new ValidationError([`Unknown menu item ${l.item_id}`]);
       if (!m.active) throw new ValidationError([`${m.item_name} is not active`]);
-      // Snapshot price & cost at the moment of saving.
+      // Snapshot price & cost at the moment of saving. Uber orders use the Uber price.
+      const price = uber ? uberPrice(m.selling_price, settings) : m.selling_price;
       return {
         line_id: `${order_id}-${i + 1}`,
         order_id, date, time, meal,
         item_id: m.item_id, item_name: m.item_name, qty: l.qty,
-        unit_price: m.selling_price, line_total: l.qty * m.selling_price,
+        unit_price: price, line_total: l.qty * price,
         unit_cost: m.unit_cost, line_cost: l.qty * m.unit_cost,
         payment_method, notes: (input.notes ?? "").trim(), entered_by: user.email,
       };
     });
     await repo.insert("orders", rows);
     const total = rows.reduce((t, r) => t + r.line_total, 0);
-    return { message: `Order saved · Rs ${total.toLocaleString("en-US")}`, id: order_id };
+    const fmt = (n: number) => `Rs ${n.toLocaleString("en-US")}`;
+    if (uber) {
+      const commission = uberCommission(total, settings);
+      const cost: DailyCost = {
+        cost_id: uberCostId(order_id),
+        date,
+        category: UBER_COST_CATEGORY,
+        description: `Uber commission · ${meal} · ${order_id}`,
+        amount: commission,
+        paid_from: "Bank",
+        paid_by: "Business",
+        notes: `Auto: ${settings.uber_commission_pct}% of ${fmt(total)}`,
+        entered_by: user.email,
+      };
+      if (commission > 0) await repo.insert("dailyCosts", [cost]);
+      return { message: `Uber order saved · ${fmt(total)} · commission ${fmt(commission)} recorded`, id: order_id };
+    }
+    return { message: `Order saved · ${fmt(total)}`, id: order_id };
   });
 }
 
@@ -76,6 +98,11 @@ export async function deleteOrder(order_id: string): Promise<ActionResult> {
     await requireAction("partner");
     const lines = (await repo.orders()).filter((o) => o.order_id === order_id);
     for (const l of lines) await repo.remove("orders", l.line_id);
+    // An Uber order's commission goes with it.
+    if (lines.some((l) => l.payment_method === "Uber")) {
+      const cid = uberCostId(order_id);
+      if ((await repo.dailyCosts()).some((c) => c.cost_id === cid)) await repo.remove("dailyCosts", cid);
+    }
     return "Order deleted";
   });
 }

@@ -4,13 +4,21 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveOrder } from "@/app/actions";
 import { useAction } from "@/components/ui";
-import { MEALS, PAYMENT_METHODS, type Meal, type MenuItem, type PaymentMethod } from "@/lib/types";
+import { MEALS, PAYMENT_METHODS, type Meal, type MenuItem, type OrderChannel, type PaymentMethod } from "@/lib/types";
+import { uberCommission, uberPrice } from "@/lib/calc/uber";
 
 const rs = (n: number) => `Rs ${Math.round(n).toLocaleString("en-US")}`;
 
 const PRINT_KEY = "mo.printReceipt";
 
-export function OrderEntry({ menu, today, defaultMeal, categories: settingCats }: { menu: MenuItem[]; today: string; defaultMeal: Meal; categories: string[] }) {
+export interface UberSettings {
+  uber_markup_pct: number;
+  uber_commission_pct: number;
+}
+
+export function OrderEntry({
+  menu, today, defaultMeal, categories: settingCats, uber: uberSettings, defaultChannel = "Cafe",
+}: { menu: MenuItem[]; today: string; defaultMeal: Meal; categories: string[]; uber: UberSettings; defaultChannel?: OrderChannel }) {
   const router = useRouter();
   // Settings order first; then any category in use but not listed in Settings.
   const categories = useMemo(
@@ -18,6 +26,10 @@ export function OrderEntry({ menu, today, defaultMeal, categories: settingCats }
     [menu, settingCats],
   );
   const [meal, setMeal] = useState<Meal>(defaultMeal);
+  const [channel, setChannel] = useState<OrderChannel>(defaultChannel);
+  const isUber = channel === "Uber";
+  // Price shown and charged for an item in the current channel.
+  const priceOf = (m: MenuItem) => (isUber ? uberPrice(m.selling_price, uberSettings) : m.selling_price);
   const [pay, setPay] = useState<PaymentMethod>("Cash");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState("");
@@ -46,7 +58,8 @@ export function OrderEntry({ menu, today, defaultMeal, categories: settingCats }
   );
 
   const lines = Object.entries(cart).filter(([, q]) => q > 0).map(([id, qty]) => ({ item: menu.find((m) => m.item_id === id)!, qty })).filter((l) => l.item);
-  const total = lines.reduce((t, l) => t + l.qty * l.item.selling_price, 0);
+  const total = lines.reduce((t, l) => t + l.qty * priceOf(l.item), 0);
+  const commission = isUber ? uberCommission(total, uberSettings) : 0;
   const count = lines.reduce((t, l) => t + l.qty, 0);
 
   const add = (id: string, d: number) => setCart((c) => ({ ...c, [id]: Math.max(0, (c[id] ?? 0) + d) }));
@@ -55,7 +68,7 @@ export function OrderEntry({ menu, today, defaultMeal, categories: settingCats }
 
   const submit = () =>
     call(
-      () => saveOrder({ meal, payment_method: pay, notes, date, lines: lines.map((l) => ({ item_id: l.item.item_id, qty: l.qty })) }),
+      () => saveOrder({ channel, meal, payment_method: isUber ? "Uber" : pay, notes, date, lines: lines.map((l) => ({ item_id: l.item.item_id, qty: l.qty })) }),
       (r) => {
         setCart({});
         setNotes("");
@@ -67,9 +80,19 @@ export function OrderEntry({ menu, today, defaultMeal, categories: settingCats }
   return (
     <div className="stack" style={{ paddingBottom: 150 }}>
       <div className="spread">
-        <h1 style={{ margin: 0 }}>New order</h1>
+        <h1 style={{ margin: 0 }}>{isUber ? "New Uber order" : "New order"}</h1>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: 160 }} aria-label="Order date" />
       </div>
+
+      <div className="seg channel" role="group" aria-label="Order type">
+        <button type="button" className={!isUber ? "on" : ""} aria-pressed={!isUber} onClick={() => setChannel("Cafe")}>☕ Cafe</button>
+        <button type="button" className={isUber ? "on uber" : ""} aria-pressed={isUber} onClick={() => setChannel("Uber")}>🛵 Uber</button>
+      </div>
+      {isUber && (
+        <div className="uber-note small">
+          Uber prices = menu price + {uberSettings.uber_markup_pct}%. Paid to <b>Bank</b>. Uber commission ({uberSettings.uber_commission_pct}% of the total) is saved as a daily cost automatically.
+        </div>
+      )}
 
       <div className="seg" role="group" aria-label="Meal">
         {MEALS.map((m) => (
@@ -103,7 +126,7 @@ export function OrderEntry({ menu, today, defaultMeal, categories: settingCats }
         {shown.map((m) => (
           <button key={m.item_id} type="button" className={`tile ${cart[m.item_id] ? "picked" : ""}`} onClick={() => add(m.item_id, 1)}>
             {label(m)}
-            <span className="price">{rs(m.selling_price)}</span>
+            <span className="price">{rs(priceOf(m))}</span>
             {cart[m.item_id] > 0 && <span className="count">{cart[m.item_id]}</span>}
           </button>
         ))}
@@ -124,16 +147,24 @@ export function OrderEntry({ menu, today, defaultMeal, categories: settingCats }
                     <input type="number" inputMode="numeric" min={1} value={l.qty} onChange={(e) => setQty(l.item.item_id, Number(e.target.value))} aria-label={`Quantity ${l.item.item_name}`} />
                     <button type="button" onClick={() => add(l.item.item_id, 1)} aria-label="More">+</button>
                   </span>
-                  <b className="num" style={{ width: 96 }}>{rs(l.qty * l.item.selling_price)}</b>
+                  <b className="num" style={{ width: 96 }}>{rs(l.qty * priceOf(l.item))}</b>
                 </div>
               ))}
               <input placeholder="Notes (table, guest, discount reason…)" value={notes} onChange={(e) => setNotes(e.target.value)} />
               <label className="row small"><input type="checkbox" checked={printAfter} onChange={(e) => togglePrint(e.target.checked)} /> Print receipt after saving</label>
-              <div className="seg" role="group" aria-label="Payment method">
-                {PAYMENT_METHODS.map((p) => (
-                  <button key={p} type="button" className={pay === p ? "on" : ""} aria-pressed={pay === p} onClick={() => setPay(p)}>{p}</button>
-                ))}
-              </div>
+              {isUber ? (
+                <div className="uber-note sum small">
+                  <div className="spread"><span>Uber order total</span><b>{rs(total)}</b></div>
+                  <div className="spread"><span>Uber commission {uberSettings.uber_commission_pct}% → daily cost (Bank)</span><b>− {rs(commission)}</b></div>
+                  <div className="spread"><span>Cafe receives</span><b>{rs(total - commission)}</b></div>
+                </div>
+              ) : (
+                <div className="seg" role="group" aria-label="Payment method">
+                  {PAYMENT_METHODS.map((p) => (
+                    <button key={p} type="button" className={pay === p ? "on" : ""} aria-pressed={pay === p} onClick={() => setPay(p)}>{p}</button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
           <div className="row">
@@ -143,7 +174,7 @@ export function OrderEntry({ menu, today, defaultMeal, categories: settingCats }
             </button>
             {count > 0 && !showCart && <button type="button" onClick={() => setCart({})} className="small">Clear</button>}
             <button type="button" className="primary" disabled={!count || pending} onClick={() => (showCart ? submit() : setShowCart(true))} style={{ flex: 1 }}>
-              {pending ? "Saving…" : showCart ? `Save · ${pay}` : "Review"}
+              {pending ? "Saving…" : showCart ? `Save · ${isUber ? "Uber" : pay}` : "Review"}
             </button>
           </div>
         </div>

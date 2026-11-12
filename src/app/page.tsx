@@ -11,6 +11,7 @@ import { pct, rs } from "@/lib/calc/money";
 import { Tip } from "@/components/ui";
 import { DailyMealChart, ProfitPlanChart } from "@/components/Charts";
 import { MEALS } from "@/lib/types";
+import { uberDay, UBER_FORMULAS } from "@/lib/calc/uber";
 import { StorageError } from "@/components/StorageError";
 import { pendingPayouts, upcomingCheckIns, villaMonth, VILLA_FORMULAS } from "@/lib/calc/villa";
 import { combinedMonth, COMBINED_FORMULA } from "@/lib/calc/combined";
@@ -29,7 +30,13 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const month = monthOf(t);
   const input = { orders, dailyCosts, fixedCosts, fixedPayments, settings };
 
-  const day = daySummary(t, orders, settings);
+  // Day figures: expected net = sales − food cost − Uber commission.
+  const dayFigures = (d: string) => {
+    const s = daySummary(d, orders, settings);
+    const u = uberDay(d, orders, dailyCosts);
+    return { ...s, uberSales: u.sales, uberCommission: u.commission, expectedNet: s.grossProfit - u.commission };
+  };
+  const day = dayFigures(t);
   const petty = accountBalance("Petty cash", { orders, dailyCosts, fixedCosts, fixedPayments, movements, villa, capital });
   const bank = accountBalance("Bank", { orders, dailyCosts, fixedCosts, fixedPayments, movements, villa, capital });
   const low = isPettyLow(petty.balance, settings);
@@ -49,7 +56,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   // Every day of the month up to today that had orders, newest first.
   const perDay = daysInMonth(month)
     .filter((d) => d <= t)
-    .map((d) => daySummary(d, orders, settings))
+    .map((d) => dayFigures(d))
     .filter((d) => d.orders > 0)
     .reverse();
 
@@ -100,7 +107,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       )}
 
       <h2 className="home-section" id="cafe">☕ MO Cafe</h2>
-      <div className="grid cols-3">
+      <div className="grid cols-4">
         <div className="card stat">
           <div className="label">Today&apos;s sales <Tip text={FORMULAS.sales.replace("month", "day")} /></div>
           <div className="value">{rs(day.sales)}</div>
@@ -116,10 +123,17 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </div>
         <div className="card stat">
           <div className="label">Expected cafe net profit · today <Tip text={FORMULAS.dayNetProfit} /></div>
-          <div className={`value ${day.grossProfit < 0 ? "neg" : ""}`}>{rs(day.grossProfit)}</div>
+          <div className={`value ${day.expectedNet < 0 ? "neg" : ""}`}>{rs(day.expectedNet)}</div>
           <div className="sub">
-            Food cost {rs(day.foodCost)} ({pct(day.foodCost, day.sales)}) ·{" "}
+            Food cost {rs(day.foodCost)} ({pct(day.foodCost, day.sales)}){day.uberCommission ? ` · Uber commission ${rs(day.uberCommission)}` : ""} ·{" "}
             <span className={day.foodCostPct !== null && day.foodCostPct * 100 > settings.food_cost_target_pct ? "neg" : ""}>target ≤ {settings.food_cost_target_pct}%</span>
+          </div>
+        </div>
+        <div className="card stat">
+          <div className="label">🛵 Uber · today <Tip text={`${UBER_FORMULAS.price(settings)}. ${UBER_FORMULAS.commission(settings)}`} /></div>
+          <div className="value">{rs(day.uberSales)}</div>
+          <div className="sub">
+            Commission {rs(day.uberCommission)} · <Link href="/order?channel=uber">+ Uber order</Link>
           </div>
         </div>
         {isPartner && (
@@ -166,20 +180,24 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
             <thead>
               <tr>
                 <th>Date</th><th className="num">Orders</th><th className="num">Total sales</th>
+                <th className="num">of which Uber</th>
                 <th className="num">Food cost <Tip text={FORMULAS.foodCost.replace("month", "day")} /></th><th className="num">Food cost %</th>
+                <th className="num">Uber commission <Tip text={UBER_FORMULAS.commission(settings)} /></th>
                 <th className="num">Expected net profit <Tip text={FORMULAS.dayNetProfit} /></th>
               </tr>
             </thead>
             <tbody>
-              {perDay.length === 0 && <tr><td colSpan={6} className="muted">No sales yet this month</td></tr>}
+              {perDay.length === 0 && <tr><td colSpan={8} className="muted">No sales yet this month</td></tr>}
               {perDay.map((d) => (
                 <tr key={d.date}>
                   <td>{d.date === t ? <b>{d.date} (today)</b> : d.date}</td>
                   <td className="num">{d.orders}</td>
                   <td className="num">{rs(d.sales)}</td>
+                  <td className="num">{d.uberSales ? rs(d.uberSales) : "-"}</td>
                   <td className="num">{rs(d.foodCost)}</td>
                   <td className="num">{pct(d.foodCost, d.sales)}</td>
-                  <td className={`num ${d.grossProfit < 0 ? "neg" : ""}`}>{rs(d.grossProfit)}</td>
+                  <td className="num">{d.uberCommission ? rs(d.uberCommission) : "-"}</td>
+                  <td className={`num ${d.expectedNet < 0 ? "neg" : ""}`}>{rs(d.expectedNet)}</td>
                 </tr>
               ))}
             </tbody>
@@ -189,9 +207,11 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                   <th>Month so far</th>
                   <th className="num">{perDay.reduce((a, d) => a + d.orders, 0)}</th>
                   <th className="num">{rs(perDay.reduce((a, d) => a + d.sales, 0))}</th>
+                  <th className="num">{rs(perDay.reduce((a, d) => a + d.uberSales, 0))}</th>
                   <th className="num">{rs(perDay.reduce((a, d) => a + d.foodCost, 0))}</th>
                   <th className="num">{pct(perDay.reduce((a, d) => a + d.foodCost, 0), perDay.reduce((a, d) => a + d.sales, 0))}</th>
-                  <th className="num">{rs(perDay.reduce((a, d) => a + d.grossProfit, 0))}</th>
+                  <th className="num">{rs(perDay.reduce((a, d) => a + d.uberCommission, 0))}</th>
+                  <th className="num">{rs(perDay.reduce((a, d) => a + d.expectedNet, 0))}</th>
                 </tr>
               </tfoot>
             )}

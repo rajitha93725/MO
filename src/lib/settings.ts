@@ -44,6 +44,8 @@ export const DEFAULT_SETTING_ROWS: SettingRow[] = [
   { key: "receipt_address", value: "", description: "Receipt: address / phone line under the name (optional)" },
   { key: "receipt_footer", value: "Thank you! Come again", description: "Receipt: line printed at the bottom" },
   { key: "receipt_width_mm", value: "80", description: "Receipt paper width in mm (80 or 58 for receipt printers)" },
+  { key: "uber_markup_pct", value: "33.4", description: "Uber orders: % added to the menu price (rounded up to the next Rs 10)" },
+  { key: "uber_commission_pct", value: "25", description: "Uber orders: % of the Uber total that Uber keeps. Saved automatically as a Daily cost 'Uber commission' (Bank, Business)" },
 ];
 
 /** "Brunch:B,All Day Menu:A" -> [{ name: "Brunch", prefix: "B" }, …]. Names may not contain ":" or ",". */
@@ -170,7 +172,8 @@ export function parseSettings(rows: SettingRow[], targets: TargetPeriod[]): Sett
     one_time_allocation: alloc,
     one_time_spread_months: Math.max(1, Math.round(toNum(g("one_time_spread_months"), "one_time_spread_months"))),
     fixed_profit_basis: basis,
-    cost_categories: list(g("cost_categories")),
+    // "Uber commission" is always available: Uber orders record it automatically.
+    cost_categories: [...list(g("cost_categories")).filter((c) => c !== "Uber commission"), "Uber commission"],
     food_check_categories: list(g("food_check_categories")),
     todo_amber_days: toNum(g("todo_amber_days"), "todo_amber_days"),
     timezone: g("timezone") || "UTC",
@@ -185,7 +188,15 @@ export function parseSettings(rows: SettingRow[], targets: TargetPeriod[]): Sett
     receipt_address: g("receipt_address"),
     receipt_footer: g("receipt_footer"),
     receipt_width_mm: Math.min(210, Math.max(40, toNum(g("receipt_width_mm"), "receipt_width_mm"))),
+    uber_markup_pct: pctSetting(g("uber_markup_pct"), "uber_markup_pct"),
+    uber_commission_pct: pctSetting(g("uber_commission_pct"), "uber_commission_pct"),
   };
+}
+
+function pctSetting(v: string, key: string): number {
+  const n = toNum(v, key);
+  if (n < 0 || n >= 100) throw new Error(`${key} must be between 0 and 99.9`);
+  return n;
 }
 
 /** Target period containing a month, if any. */

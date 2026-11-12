@@ -1,7 +1,7 @@
 // Monthly report: one month of sales, orders, costs, fixed costs and profit (cafe),
 // plus villa, cash and combined shares for the owner. Pure functions only.
 import type { Account, CashMovement, DailyCost, MenuItem, MonthKey, OrderLine, PaymentMethod, VillaRecord } from "../types";
-import { ACCOUNTS, MEALS, PAYMENT_METHODS } from "../types";
+import { ACCOUNTS, ALL_PAYMENT_METHODS, MEALS } from "../types";
 import { addDays, addMonths, daysInMonth, monthOf } from "./dates";
 import { ratio, sum } from "./money";
 import { daySummary } from "./daily";
@@ -157,7 +157,7 @@ export function cafeReport(month: MonthKey, input: ProfitInputs, menu: MenuItem[
     days,
     byMeal,
     // count = number of orders paid that way
-    byPayment: by(orderList, (o) => o.payment_method, (o) => o.total, PAYMENT_METHODS),
+    byPayment: by(orderList, (o) => o.payment_method, (o) => o.total, ALL_PAYMENT_METHODS),
     byCategory: by(lines, (l) => categoryOf.get(l.item_id) ?? "-", (l) => l.line_total),
     items,
     orderList,

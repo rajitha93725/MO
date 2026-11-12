@@ -283,3 +283,10 @@ table.cal td.cal-booked a { display: flex; align-items: center; justify-content:
 
 /* ---------- home page sections ---------- */
 .home-section { margin: 14px 0 -4px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 1.05rem; scroll-margin-top: 70px; }
+
+/* ---------- Uber orders ---------- */
+.seg.channel button { font-weight: 600; }
+.seg.channel button.on.uber { background: #000; color: #fff; border-color: #000; }
+.uber-note { padding: 8px 10px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); }
+.uber-note.sum { display: grid; gap: 4px; }
+.badge.uber { background: #000; color: #fff; }

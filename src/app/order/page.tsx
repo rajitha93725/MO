@@ -4,8 +4,9 @@ import { today } from "@/lib/today";
 import { StorageError } from "@/components/StorageError";
 import { OrderEntry } from "./OrderEntry";
 
-export default async function OrderPage() {
+export default async function OrderPage({ searchParams }: { searchParams: Promise<{ channel?: string }> }) {
   await requirePage("any");
+  const { channel } = await searchParams;
   try {
     const [menu, settings] = await Promise.all([repo.menu(), repo.settings()]);
     const t = today(settings);
@@ -13,7 +14,18 @@ export default async function OrderPage() {
     const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: settings.timezone, hour: "2-digit", hour12: false }).format(new Date()));
     const meal = hour < 11 ? "Breakfast" : hour < 17 ? "Lunch" : "Dinner";
     const categories = settings.menu_categories.map((c) => c.name);
-    return <OrderEntry menu={menu.filter((m) => m.active)} today={t} defaultMeal={meal} categories={categories} />;
+    const uber = { uber_markup_pct: settings.uber_markup_pct, uber_commission_pct: settings.uber_commission_pct };
+    return (
+      <OrderEntry
+        key={channel === "uber" ? "uber" : "cafe"}
+        menu={menu.filter((m) => m.active)}
+        today={t}
+        defaultMeal={meal}
+        categories={categories}
+        uber={uber}
+        defaultChannel={channel === "uber" ? "Uber" : "Cafe"}
+      />
+    );
   } catch (e) {
     return <StorageError error={e} />;
   }

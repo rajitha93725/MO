@@ -152,6 +152,8 @@ Types: Opening balance, Top-up, Withdrawal (these use `account`), and Transfer p
 | receipt_address | (empty) | receipt: optional address / phone line |
 | receipt_footer | Thank you! Come again | receipt: last line |
 | receipt_width_mm | 80 | receipt paper width (80 or 58 for receipt printers) |
+| uber_markup_pct | 33.4 | Uber orders: % added to the menu price, rounded up to the next Rs 10 |
+| uber_commission_pct | 25 | Uber orders: % of the Uber total that Uber keeps, saved as a daily cost |
 | petty_low_threshold | 20000 | low petty-cash warning |
 | one_time_allocation | full | `full` = all in month paid; `spread` = over N open months |
 | one_time_spread_months | 6 | N for spread |
@@ -218,7 +220,7 @@ tests/                      unit tests (profit, cash, daily, validation, CSV)
 ```bash
 npm test
 ```
-114 tests cover the profit formulas, fixed-cost allocation (monthly, closed months, one-time full or spread), planned vs actual, partner split and rounding, YTD, cash and bank balances, transfers, the low-cash warning, the daily view, to-do urgency, validation, CSV escaping, the Sheets store, and MO Villa (nights, commission and payout, splitting stays across months, double booking, monthly villa profit, occupancy, per-room profit, cash and combined profit).
+121 tests cover the profit formulas, fixed-cost allocation (monthly, closed months, one-time full or spread), planned vs actual, partner split and rounding, YTD, cash and bank balances, transfers, the low-cash warning, the daily view, to-do urgency, validation, CSV escaping, the Sheets store, and MO Villa (nights, commission and payout, splitting stays across months, double booking, monthly villa profit, occupancy, per-room profit, cash and combined profit).
 
 ---
 
@@ -309,3 +311,19 @@ After **Save** on the New order screen, the receipt opens and the print dialog a
 - The receipt shows the date, time, meal, order number, each item (qty × price), total, payment method, item count and the order note.
 - Header, footer and paper width come from Settings (`receipt_name`, `receipt_address`, `receipt_footer`, `receipt_width_mm`).
 - Printing uses the device's normal print dialog, so it works with any printer the phone, tablet or computer can print to: a Bluetooth or USB receipt printer (pick it in the dialog), a Wi-Fi printer, or "Save as PDF".
+
+## 12. Uber orders
+
+On **New order**, switch the top toggle from **☕ Cafe** to **🛵 Uber**. The Home page also has a **+ Uber order** link, which opens `/order?channel=uber`.
+
+- Same menu and the same Breakfast / Lunch / Dinner choice. Every price is the menu price + `uber_markup_pct` (33.4%), rounded up to the next Rs 10, e.g. Rs 1,850 becomes Rs 2,470.
+- Payment is always **Uber**, and the money counts towards the **Bank** balance.
+- When the order is saved, the app also saves a **Daily cost**:
+  - category `Uber commission`
+  - amount = order total × `uber_commission_pct` (25%)
+  - paid from **Bank** by **Business**
+  - its id is `UC-<order id>`
+- Deleting the order on Sales also deletes its commission.
+- With a 33.4% markup and 25% commission, the cafe keeps at least the normal menu price (1.334 × 0.75 ≈ 1.0).
+- Home shows Uber sales and commission for today and for each day. Expected daily net profit = sales − food cost − Uber commission. Monthly net profit includes the commission because it is a daily cost.
+- Monthly reports list Uber as a payment method.
