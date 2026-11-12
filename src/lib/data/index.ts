@@ -23,7 +23,7 @@ function demoStore(): DataStore {
     orders: rows(s.orders),
     dailyCosts: rows(s.dailyCosts),
     cash: rows(s.movements),
-    todo: rows([...s.todos, { task_id: "T-008", task: "Change bedsheets Room 1 before check-in", owner: "Staff", due_date: "2027-01-18", priority: "High", done: false, done_date: "", booking_id: "VB-10" }]),
+    todo: rows([...s.todos, { task_id: "T-008", task: "Change bedsheets Room 1 before check-in", owner: "Staff", due_date: "2027-01-18", priority: "High", done: false, done_date: "", booking_id: "VB-10", villa: true }]),
     villa: rows(buildVillaSample()),
     // sample opening budget: Rajitha ~95%, Janith ~5% (demo only)
     capital: rows([

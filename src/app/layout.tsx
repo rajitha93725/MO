@@ -5,10 +5,15 @@ import { currentUser, authDisabled } from "@/lib/auth";
 import { BottomNav } from "@/components/Nav";
 import { Logo } from "@/components/ui";
 
-export const metadata: Metadata = {
-  title: "MO Cafe & Villa – Operations",
-  description: "Daily operations for MO Cafe & Villa",
-};
+// The villa is only named for the owner.
+export async function generateMetadata(): Promise<Metadata> {
+  let owner = false;
+  try {
+    owner = Boolean((await currentUser())?.owner);
+  } catch {}
+  const name = owner ? "MO Cafe & Villa" : "MO Cafe";
+  return { title: `${name} – Operations`, description: `Daily operations for ${name}` };
+}
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -34,7 +39,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <Logo size={38} />
           </Link>
           <div className="title">
-            MO Cafe &amp; Villa
+            {user?.owner ? "MO Cafe & Villa" : "MO Cafe"}
             <small>Operations</small>
           </div>
           {user && (

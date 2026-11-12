@@ -10,7 +10,7 @@ import { addMonths, daysInMonth, monthLabel, monthOf } from "@/lib/calc/dates";
 import { pct, rs } from "@/lib/calc/money";
 import { Tip } from "@/components/ui";
 import { DailyMealChart, ProfitPlanChart } from "@/components/Charts";
-import { MEALS } from "@/lib/types";
+import { MEALS, isVillaTodo } from "@/lib/types";
 import { uberDay, UBER_FORMULAS } from "@/lib/calc/uber";
 import { StorageError } from "@/components/StorageError";
 import { pendingPayouts, upcomingCheckIns, villaMonth, VILLA_FORMULAS } from "@/lib/calc/villa";
@@ -69,7 +69,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     closed: r.closed,
   }));
 
-  const nextTodos = activeTodos(user.owner ? todos : todos.filter((td) => !td.booking_id)).slice(0, 5);
+  const nextTodos = activeTodos(user.owner ? todos : todos.filter((td) => !isVillaTodo(td))).slice(0, 5);
   const unpaid = unpaidFixedCosts(month, fixedCosts, fixedPayments, settings);
   const isPartner = user.role === "partner";
   // Villa figures and cash balances are for the owner only. Partner shares are on the Profit page (monthly).

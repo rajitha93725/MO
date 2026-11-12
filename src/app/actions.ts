@@ -9,7 +9,7 @@ import { parsePartners, parseSettings } from "@/lib/settings";
 import {
   ACCOUNTS, ALL_ROOMS, BOOKING_STATUSES, CAPITAL_BUSINESSES, CAPITAL_PAID_INTO, MEALS, MOVED_BY, MOVEMENT_TYPES, PAID_BY,
   PAYMENT_METHODS, PAYOUT_STATUSES, type OrderChannel, PRIORITIES, type CapitalContribution,
-  type DailyCost, type FixedCost, type FixedPayment, type MenuItem, type OrderLine, type TargetPeriod, type Todo, type VillaRecord,
+  isVillaTodo, type DailyCost, type FixedCost, type FixedPayment, type MenuItem, type OrderLine, type TargetPeriod, type Todo, type VillaRecord,
 } from "@/lib/types";
 import { commissionFor, findOverlaps, netPayoutFor, nightsBetween } from "@/lib/calc/villa";
 import type { ReceiptOrder } from "@/lib/receipt";
@@ -301,7 +301,7 @@ export async function deleteMovement(id: string): Promise<ActionResult> {
 async function assertTodoAccess(user: AppUser, task_id: string | undefined) {
   if (user.owner || !task_id) return;
   const t = (await repo.todos()).find((x) => x.task_id === task_id);
-  if (t?.booking_id) throw new Error("Only the owner can change this task.");
+  if (t && isVillaTodo(t)) throw new Error("Only the owner can change this task.");
 }
 
 export async function saveTodo(form: Record<string, string>): Promise<ActionResult> {
@@ -319,11 +319,13 @@ export async function saveTodo(form: Record<string, string>): Promise<ActionResu
       done: false,
       done_date: "",
       booking_id: (form.booking_id ?? "").trim(),
+      // Only the owner can mark a villa task; a booking link always makes it one.
+      villa: user.owner && (["on", "yes", "true"].includes(String(form.villa ?? "").toLowerCase()) || Boolean((form.booking_id ?? "").trim())),
     };
     if (row.booking_id) v.check((await repo.villa()).some((r) => r.record_id === row.booking_id && r.record_type === "Booking"), "Linked booking not found");
     v.done();
     if (form.task_id)
-      await repo.update("todo", form.task_id, { task: row.task, owner: row.owner, due_date: row.due_date, priority: row.priority, booking_id: row.booking_id });
+      await repo.update("todo", form.task_id, { task: row.task, owner: row.owner, due_date: row.due_date, priority: row.priority, booking_id: row.booking_id, villa: row.villa });
     else await repo.insert("todo", [row]);
     return "Task saved";
   });

@@ -33,7 +33,7 @@ export function CapitalForm({ editing, partners, today, businesses }: { editing:
         <select name="business" defaultValue={editing?.business ?? "MO Cafe"}>{businesses.map((b) => <option key={b}>{b}</option>)}</select>
       </label>
       <label className="field"><span>Amount (Rs) *</span><input type="number" name="amount" inputMode="numeric" min={1} step={1} required defaultValue={editing?.amount || ""} /></label>
-      <label className="field full"><span>Description *</span><input name="description" required defaultValue={editing?.description ?? ""} placeholder="e.g. Kitchen equipment, villa furniture" /></label>
+      <label className="field full"><span>Description *</span><input name="description" required defaultValue={editing?.description ?? ""} placeholder={businesses.length > 1 ? "e.g. Kitchen equipment, villa furniture" : "e.g. Kitchen equipment"} /></label>
       <label className="field full"><span>Paid into</span>
         <select name="paid_into" defaultValue={editing?.paid_into ?? "Paid directly"}>
           {CAPITAL_PAID_INTO.map((p) => <option key={p} value={p}>{p === "Paid directly" ? "Paid directly (to a supplier – no account change)" : `Business ${p.toLowerCase()} (raises the balance)`}</option>)}

@@ -31,7 +31,7 @@ export const HEADERS: Record<TabKey, string[]> = {
   fixedCosts: ["fixed_id", "name", "amount", "frequency", "start_month", "end_month", "month_paid", "paid_from", "notes"],
   fixedPayments: ["payment_id", "fixed_id", "month", "amount", "paid_date", "paid_from", "notes"],
   cash: ["movement_id", "date", "account", "type", "amount", "notes", "moved_by"],
-  todo: ["task_id", "task", "owner", "due_date", "priority", "done", "done_date", "booking_id"],
+  todo: ["task_id", "task", "owner", "due_date", "priority", "done", "done_date", "booking_id", "villa"],
   settings: ["key", "value", "description"],
   targets: [
     "period", "start_month", "end_month", "planned_monthly_sales", "planned_net_profit",
@@ -90,4 +90,4 @@ export const TEXT_COLUMNS: Partial<Record<TabKey, string[]>> = {
   capital: ["date"],
 };
 
-export const BOOLEAN_COLUMNS = new Set(["active", "done"]);
+export const BOOLEAN_COLUMNS = new Set(["active", "done", "villa"]);

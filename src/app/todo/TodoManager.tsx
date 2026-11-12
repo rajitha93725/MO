@@ -51,6 +51,11 @@ export function TodoManager({ list, view, today, amberDays, isPartner, counts, b
           </label>
           <label className="field"><span>Due date</span><input type="date" name="due_date" required defaultValue={editing?.due_date ?? today} /></label>
           {showBookings && (
+            <label className="row field" style={{ alignSelf: "end" }}>
+              <input type="checkbox" name="villa" defaultChecked={editing?.villa ?? false} key={editing?.task_id ?? "new"} /> 🏡 MO Villa task (only you see it)
+            </label>
+          )}
+          {showBookings && (
             <label className="field"><span>Villa booking (optional)</span>
               <select name="booking_id" defaultValue={editing?.booking_id ?? ""}>
                 <option value="">— none —</option>

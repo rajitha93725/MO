@@ -111,13 +111,13 @@ export function buildSample(menu: MenuItem[], monthlyFixed: FixedCost[], from = 
   ];
 
   const todos: Todo[] = [
-    { task_id: "T-001", task: "Renew trade licence", owner: "Rajitha", due_date: "2027-01-12", priority: "High", done: false, done_date: "", booking_id: "" },
-    { task_id: "T-002", task: "Service coffee machine", owner: "Staff", due_date: "2027-01-21", priority: "Medium", done: false, done_date: "", booking_id: "" },
-    { task_id: "T-003", task: "Print new menu cards", owner: "Janith", due_date: "2027-01-22", priority: "Medium", done: false, done_date: "", booking_id: "" },
-    { task_id: "T-004", task: "Order gas cylinders (x4)", owner: "Staff", due_date: "2027-01-30", priority: "Low", done: false, done_date: "", booking_id: "" },
-    { task_id: "T-005", task: "Instagram post – sunset menu", owner: "Janith", due_date: "2027-02-05", priority: "Low", done: false, done_date: "", booking_id: "" },
-    { task_id: "T-006", task: "Fix villa room 2 shower", owner: "Rajitha", due_date: "2027-02-10", priority: "High", done: false, done_date: "", booking_id: "" },
-    { task_id: "T-007", task: "Opening day flyers", owner: "Janith", due_date: "2026-11-28", priority: "High", done: true, done_date: "2026-11-27", booking_id: "" },
+    { task_id: "T-001", task: "Renew trade licence", owner: "Rajitha", due_date: "2027-01-12", priority: "High", done: false, done_date: "", booking_id: "", villa: false },
+    { task_id: "T-002", task: "Service coffee machine", owner: "Staff", due_date: "2027-01-21", priority: "Medium", done: false, done_date: "", booking_id: "", villa: false },
+    { task_id: "T-003", task: "Print new menu cards", owner: "Janith", due_date: "2027-01-22", priority: "Medium", done: false, done_date: "", booking_id: "", villa: false },
+    { task_id: "T-004", task: "Order gas cylinders (x4)", owner: "Staff", due_date: "2027-01-30", priority: "Low", done: false, done_date: "", booking_id: "", villa: false },
+    { task_id: "T-005", task: "Instagram post – sunset menu", owner: "Janith", due_date: "2027-02-05", priority: "Low", done: false, done_date: "", booking_id: "", villa: false },
+    { task_id: "T-006", task: "Fix villa room 2 shower", owner: "Rajitha", due_date: "2027-02-10", priority: "High", done: false, done_date: "", booking_id: "", villa: true },
+    { task_id: "T-007", task: "Opening day flyers", owner: "Janith", due_date: "2026-11-28", priority: "High", done: true, done_date: "2026-11-27", booking_id: "", villa: false },
   ];
 
   return { orders, dailyCosts, fixedPayments, fixedCosts, movements, todos };

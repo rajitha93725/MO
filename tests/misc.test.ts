@@ -32,7 +32,7 @@ describe("menu food cost %", () => {
 });
 
 describe("to-do", () => {
-  const t = (p: Partial<Todo>): Todo => ({ task_id: Math.random().toString(), task: "x", owner: "Staff", due_date: "", priority: "Low", done: false, done_date: "", booking_id: "", ...p });
+  const t = (p: Partial<Todo>): Todo => ({ task_id: Math.random().toString(), task: "x", owner: "Staff", due_date: "", priority: "Low", done: false, done_date: "", booking_id: "", villa: false, ...p });
   it("red when overdue, amber within N days", () => {
     const s = settings();
     expect(todoUrgency(t({ due_date: "2027-01-09" }), "2027-01-10", s)).toBe("overdue");
@@ -68,5 +68,14 @@ describe("validation", () => {
 describe("CSV export", () => {
   it("quotes commas, quotes and newlines", () => {
     expect(toCsv(["a", "b"], [["x,y", 'say "hi"'], ["line\nbreak", 5]])).toBe('a,b\r\n"x,y","say ""hi"""\r\n"line\nbreak",5');
+  });
+});
+
+describe("villa to-dos are owner-only", () => {
+  it("a ticked villa task or a booking-linked task counts as villa", async () => {
+    const { isVillaTodo } = await import("../src/lib/types");
+    expect(isVillaTodo({ villa: true, booking_id: "" })).toBe(true);
+    expect(isVillaTodo({ villa: false, booking_id: "VB-1" })).toBe(true);
+    expect(isVillaTodo({ villa: false, booking_id: "" })).toBe(false);
   });
 });

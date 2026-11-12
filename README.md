@@ -78,7 +78,7 @@ The app runs on any Node 18+ host. On **Vercel**: import the repo, add the same 
 | Role | Can do |
 |---|---|
 | **owner** (a partner listed in `OWNER_EMAILS`) | Everything, including **MO Villa**, **Cash & bank**, **Settings** and **Users** |
-| **partner** | The cafe: menu, fixed costs and payments, cafe profit and their cafe share, cafe capital, to-dos, and edit or delete any cafe entry. **No villa information**: no villa page or cards, no villa profit or shares, no booking-linked to-dos, no MO Villa or shared capital, and no Cash & bank (villa money moves through the same accounts) |
+| **partner** | The cafe: menu, fixed costs and payments, cafe profit and their cafe share, cafe capital, to-dos, and edit or delete any cafe entry. **No villa information**: no villa page or cards, no villa profit or shares, no villa to-dos (ticked **🏡 MO Villa task** or linked to a booking), the app is called just "MO Cafe", no MO Villa or shared capital, and no Cash & bank (villa money moves through the same accounts) |
 | **staff** | Add orders and daily costs, and view the menu, daily sales and to-dos. No profit, cash, settings or editing of existing entries |
 
 Roles are checked on the server inside every page (`requirePage`) and server action (`requireAction`), not only hidden in the UI. Sign-in is limited to the Users tab plus `BOOTSTRAP_PARTNER_EMAILS`. The owner comes from the server config (`OWNER_EMAILS`), never from the sheet, so no one can give themselves owner access from inside the app.
@@ -137,7 +137,7 @@ Costs paid **personally** by a partner (`paid_by` ≠ Business) count in profit 
 Types: Opening balance, Top-up, Withdrawal (these use `account`), and Transfer petty→bank, Transfer bank→petty, Cash sales deposit (petty→bank). The direction of those three is fixed.
 
 ### Todo
-`task_id, task, owner (Rajitha / Janith / Staff), due_date, priority (High / Medium / Low), done (checkbox), done_date, booking_id (optional link to a MO_Villa booking)`
+`task_id, task, owner (Rajitha / Janith / Staff), due_date, priority (High / Medium / Low), done (checkbox), done_date, booking_id (optional link to a MO_Villa booking), villa (checkbox: MO Villa task, owner only)`
 
 ### Settings (key / value / description)
 | key | default | used for |
@@ -220,7 +220,7 @@ tests/                      unit tests (profit, cash, daily, validation, CSV)
 ```bash
 npm test
 ```
-125 tests cover the profit formulas, fixed-cost allocation (monthly, closed months, one-time full or spread), planned vs actual, partner split and rounding, YTD, cash and bank balances, transfers, the low-cash warning, the daily view, to-do urgency, validation, CSV escaping, the Sheets store, and MO Villa (nights, commission and payout, splitting stays across months, double booking, monthly villa profit, occupancy, per-room profit, cash and combined profit).
+126 tests cover the profit formulas, fixed-cost allocation (monthly, closed months, one-time full or spread), planned vs actual, partner split and rounding, YTD, cash and bank balances, transfers, the low-cash warning, the daily view, to-do urgency, validation, CSV escaping, the Sheets store, and MO Villa (nights, commission and payout, splitting stays across months, double booking, monthly villa profit, occupancy, per-room profit, cash and combined profit).
 
 ---
 
@@ -269,7 +269,7 @@ Screen: **More → MO Villa** (owner only), with four views: **Bookings**, **Cos
 - **Cash:** a booking marked **Received** adds its `net_payout` to `received_to` on `payout_date`. Villa costs reduce the `paid_from` account on their date.
 - **Dashboard:** villa net profit, occupancy, check-ins in the next 7 days, pending payouts, and total profit (Cafe + Villa).
 - **Profit page:** "Business profit: Cafe + Villa" (owner only). **Partner share = Cafe net profit × cafe % (`partners`) + Villa net profit × villa % (`villa_partners`).** With the defaults, Rajitha gets 50% of cafe profit plus 100% of villa profit, and Janith gets 50% of cafe profit.
-- **To-do:** each task can be linked to a booking.
+- **To-do:** each task can be linked to a booking. Tick **🏡 MO Villa task** (or link a booking) to keep a task owner-only.
 
 ---
 

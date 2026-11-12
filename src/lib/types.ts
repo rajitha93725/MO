@@ -172,6 +172,13 @@ export interface Todo {
   done: boolean;
   done_date: ISODate; // "" when open
   booking_id: string; // optional link to a MO_Villa booking record_id
+  /** MO Villa task: only the owner sees it (also true for any task linked to a booking). */
+  villa: boolean;
+}
+
+/** Villa tasks are hidden from everyone except the owner. */
+export function isVillaTodo(t: Pick<Todo, "villa" | "booking_id">): boolean {
+  return Boolean(t.villa) || Boolean(t.booking_id);
 }
 
 export interface UserRow {
