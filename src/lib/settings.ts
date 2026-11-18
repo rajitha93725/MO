@@ -8,7 +8,7 @@ import type { DiningArea, MenuCategory, Partner, Settings, SettingRow, TargetPer
 export const DEFAULT_SETTING_ROWS: SettingRow[] = [
   { key: "opening_month", value: "2026-12", description: "First trading month (YYYY-MM)" },
   { key: "closed_months", value: "6,7,8,9,10", description: "Month numbers the cafe is closed (1=Jan … 12=Dec)" },
-  { key: "food_cost_target_pct", value: "40", description: "Menu items above this food cost % are highlighted" },
+  { key: "food_cost_target_pct", value: "33", description: "Food cost % target: menu items at or below it are green, above it red" },
   { key: "partners", value: "Rajitha:50,Janith:50", description: "Profit split, Name:percent, comma separated (must total 100)" },
   { key: "petty_low_threshold", value: "20000", description: "Warn when petty cash falls below this (Rs)" },
   { key: "one_time_allocation", value: "full", description: "One-time fixed costs: full = all in month paid, spread = over N open months" },

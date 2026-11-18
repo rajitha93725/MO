@@ -82,7 +82,7 @@ export function MenuManager({ menu, history, target, isPartner, categories }: { 
                     const st = menuStats(m, settings);
                     const hist = history.filter((h) => h.item_id === m.item_id);
                     return (
-                      <div key={m.item_id} className={`menu-card ${st.aboveTarget ? "high" : ""} ${m.active ? "" : "inactive"}`}>
+                      <div key={m.item_id} className={`menu-card ${st.aboveTarget ? "high" : st.foodCostPct !== null && m.unit_cost > 0 ? "ok" : ""} ${m.active ? "" : "inactive"}`}>
                         <div style={{ minWidth: 0 }}>
                           <div className="name">{m.item_name} {!m.active && <span className="badge">inactive</span>}</div>
                           {m.description && <div className="small" style={{ color: "var(--text-2)" }}>{m.description}</div>}

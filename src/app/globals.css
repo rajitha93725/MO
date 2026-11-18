@@ -198,6 +198,8 @@ tr:last-child td { border-bottom: none; }
 /* ---------- menu cards ---------- */
 .menu-card { display: flex; justify-content: space-between; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
 .menu-card.high { border-color: var(--bad); background: var(--bad-soft); }
+/* at or below the food cost target (Settings: food_cost_target_pct) */
+.menu-card.ok { border-color: var(--good); background: var(--good-soft); }
 .menu-card.inactive { opacity: 0.55; }
 .menu-card .name { font-weight: 600; }
 
