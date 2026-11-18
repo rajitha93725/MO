@@ -24,6 +24,7 @@ export default async function OrderPage({ searchParams }: { searchParams: Promis
         categories={categories}
         uber={uber}
         defaultChannel={channel === "uber" ? "Uber" : "Cafe"}
+        areas={settings.dining_areas}
         receiptSettings={{
           receipt_name: settings.receipt_name,
           receipt_address: settings.receipt_address,

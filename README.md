@@ -109,7 +109,8 @@ Written automatically whenever a partner changes an item's cost or price.
 | unit_price, unit_cost | **Snapshot** of the menu price and cost at save time, so later menu changes don't alter history |
 | line_total | qty × unit_price |
 | line_cost | qty × unit_cost |
-| payment_method | Cash / Card / Bank transfer |
+| payment_method | Cash / Card / Bank transfer (Uber orders: Uber) |
+| order_type, table_no | Dine-in (with a table like "Garden 2") / Take-away / Uber |
 | notes | Free text |
 | line_id | Unique key of the row |
 | entered_by | Email of the user who saved it |
@@ -325,7 +326,16 @@ On **New order**, switch the top toggle from **☕ Cafe** to **🛵 Uber**. The 
 - Home shows Uber sales and commission for today and for each day. Expected daily net profit = sales − food cost − Uber commission. Monthly net profit includes the commission because it is a daily cost.
 - Monthly reports list Uber as a payment method.
 
-## 13. Public menu card
+## 13. Dine-in, take-away and Uber
+
+The order screen starts with three buttons: **🍽️ Dine-in**, **📦 Take-away**, **🛵 Uber**.
+- **Dine-in** needs a table. Tables come from Settings `dining_tables` (default `Upstairs:5,Garden:5`, named "Upstairs 1" … "Garden 5"). Upstairs tables are **blue**, Garden tables **green** (a third area would be purple). After picking, the picker folds to "Table: Garden 2 · Change"; after saving it asks for the next table.
+- **Take-away** needs nothing more: the kitchen packs it.
+- **Uber** works as in section 12 (Uber prices, paid to Bank, commission as a daily cost).
+- The receipt prints a big kitchen line under the name: `DINE-IN · Garden 2`, `TAKE-AWAY · PACK` or `UBER · PACK`.
+- Orders store `order_type` and `table_no`. Sales shows a coloured table badge, 📦 or 🛵; the monthly report has **By order type** (orders and sales) and a Type column in Order details. Orders saved before this show as "Not recorded" (Uber ones are still recognised).
+
+## 14. Public menu card
 
 **/menu** is the menu for guests: share the link or put it in a QR code. No sign-in needed. Tabs: **Beverage**, **Brunch**,
 **All Day** (from the menu categories; any other category gets its own tab). Only active items are shown, with name,

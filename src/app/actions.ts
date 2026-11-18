@@ -7,7 +7,7 @@ import { V, ValidationError } from "@/lib/validate";
 import { today, nowTime } from "@/lib/today";
 import { parsePartners, parseSettings } from "@/lib/settings";
 import {
-  ACCOUNTS, CAFE_ACCOUNTS, VILLA_ACCOUNTS, CAFE_MOVEMENT_TYPES, TRANSFERS, movementAccounts, ALL_ROOMS, BOOKING_STATUSES, CAPITAL_BUSINESSES, CAPITAL_PAID_INTO, MEALS, MOVED_BY, MOVEMENT_TYPES, PAID_BY,
+  ORDER_TYPES, ACCOUNTS, CAFE_ACCOUNTS, VILLA_ACCOUNTS, CAFE_MOVEMENT_TYPES, TRANSFERS, movementAccounts, ALL_ROOMS, BOOKING_STATUSES, CAPITAL_BUSINESSES, CAPITAL_PAID_INTO, MEALS, MOVED_BY, MOVEMENT_TYPES, PAID_BY,
   PAYMENT_METHODS, PAYOUT_STATUSES, type OrderChannel, PRIORITIES, type CapitalContribution,
   isVillaTodo, type DailyCost, type FixedCost, type FixedPayment, type MenuItem, type OrderLine, type TargetPeriod, type Todo, type VillaRecord,
 } from "@/lib/types";
@@ -42,6 +42,9 @@ async function run(
 export interface OrderInput {
   /** "Uber" = Uber order: Uber prices, paid to Bank, commission saved as a daily cost. Default "Cafe". */
   channel?: OrderChannel;
+  /** Dine-in (needs table_no) / Take-away / Uber. */
+  order_type?: string;
+  table_no?: string;
   /** Ignored: the meal is logged from the order time (calc/meal.ts). Kept for old callers. */
   meal?: string;
   payment_method: string;
@@ -55,7 +58,9 @@ export async function saveOrder(input: OrderInput): Promise<ActionResult> {
     const user = await requireAction("any");
     const settings = await repo.settings();
     const v = new V();
-    const uber = input.channel === "Uber";
+    const order_type = v.oneOf("Order type", input.order_type || (input.channel === "Uber" ? "Uber" : ""), ORDER_TYPES);
+    const uber = order_type === "Uber";
+    const table_no = order_type === "Dine-in" ? v.oneOf("Table", input.table_no, settings.dining_areas.flatMap((a) => a.tables)) : "";
     const payment_method = uber ? "Uber" : v.oneOf("Payment method", input.payment_method, PAYMENT_METHODS);
     const date = v.date("Date", input.date || today(settings));
     v.check(input.lines.length > 0, "Add at least one item");
@@ -80,6 +85,7 @@ export async function saveOrder(input: OrderInput): Promise<ActionResult> {
         unit_price: price, line_total: l.qty * price,
         unit_cost: m.unit_cost, line_cost: l.qty * m.unit_cost,
         payment_method, notes: (input.notes ?? "").trim(), entered_by: user.email,
+        order_type, table_no,
       };
     });
     await repo.insert("orders", rows);
@@ -87,7 +93,7 @@ export async function saveOrder(input: OrderInput): Promise<ActionResult> {
     const fmt = (n: number) => `Rs ${n.toLocaleString("en-US")}`;
     // Everything needed to print the receipt straight away, without reading the order back.
     const receipt: ReceiptOrder = {
-      order_id, date, time, meal, payment_method, notes: rows[0].notes,
+      order_id, date, time, meal, payment_method, notes: rows[0].notes, order_type, table_no,
       lines: rows.map((r) => ({
         item_name: receiptItemName(r.item_name, menu.find((m) => m.item_id === r.item_id)?.sub_category),
         qty: r.qty, unit_price: r.unit_price, line_total: r.line_total,

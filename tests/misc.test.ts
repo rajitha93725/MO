@@ -79,3 +79,20 @@ describe("villa to-dos are owner-only", () => {
     expect(isVillaTodo({ villa: false, booking_id: "" })).toBe(false);
   });
 });
+
+describe("dine-in tables and order types", () => {
+  it("builds tables per area from Settings", async () => {
+    const { parseDiningTables } = await import("../src/lib/settings");
+    const a = parseDiningTables("Upstairs:5,Garden:5");
+    expect(a.map((x) => x.name)).toEqual(["Upstairs", "Garden"]);
+    expect(a[1].tables).toEqual(["Garden 1", "Garden 2", "Garden 3", "Garden 4", "Garden 5"]);
+    expect(() => parseDiningTables("Upstairs:0")).toThrow(/dining_tables/);
+    expect(() => parseDiningTables("Garden:2,garden:3")).toThrow(/unique/);
+  });
+  it("old orders: Uber from the payment, others unknown", async () => {
+    const { orderTypeOf } = await import("../src/lib/types");
+    expect(orderTypeOf({ order_type: "Take-away", payment_method: "Cash" })).toBe("Take-away");
+    expect(orderTypeOf({ order_type: "", payment_method: "Uber" })).toBe("Uber");
+    expect(orderTypeOf({ order_type: "", payment_method: "Cash" })).toBe("");
+  });
+});

@@ -3,6 +3,7 @@ import { requirePage } from "@/lib/auth";
 import { repo } from "@/lib/data/repo";
 import { receiptHtml, receiptItemName, receiptPageCss, type ReceiptOrder } from "@/lib/receipt";
 import { StorageError } from "@/components/StorageError";
+import { orderTypeOf } from "@/lib/types";
 import { AutoPrint, PrintReceiptButton } from "./ReceiptActions";
 
 export default async function ReceiptPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ print?: string }> }) {
@@ -38,6 +39,7 @@ export default async function ReceiptPage({ params, searchParams }: { params: Pr
   const order: ReceiptOrder = {
     order_id: o.order_id, date: o.date, time: o.time, meal: o.meal, payment_method: o.payment_method,
     notes: lines.find((l) => l.notes)?.notes ?? "",
+    order_type: orderTypeOf(o), table_no: o.table_no,
     lines: lines.map((l) => ({
       item_name: receiptItemName(l.item_name, menu.find((m) => m.item_id === l.item_id)?.sub_category),
       qty: l.qty, unit_price: l.unit_price, line_total: l.line_total,

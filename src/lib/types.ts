@@ -13,6 +13,23 @@ export const ALL_PAYMENT_METHODS: PaymentMethod[] = [...PAYMENT_METHODS, "Uber"]
 /** Where an order came from. */
 export type OrderChannel = "Cafe" | "Uber";
 
+/** How the order is served. Dine-in needs a table; Take-away and Uber are packed. */
+export type OrderType = "Dine-in" | "Take-away" | "Uber";
+export const ORDER_TYPES: OrderType[] = ["Dine-in", "Take-away", "Uber"];
+export const ORDER_TYPE_ICON: Record<OrderType, string> = { "Dine-in": "🍽️", "Take-away": "📦", Uber: "🛵" };
+
+/** Orders saved before order types existed: Uber is known from the payment; others are unknown (""). */
+export function orderTypeOf(o: { order_type?: string; payment_method: string }): OrderType | "" {
+  if (o.order_type && (ORDER_TYPES as string[]).includes(o.order_type)) return o.order_type as OrderType;
+  return o.payment_method === "Uber" ? "Uber" : "";
+}
+
+/** Dine-in tables of one area (Settings: dining_tables), e.g. Upstairs → "Upstairs 1" … "Upstairs 5". */
+export interface DiningArea {
+  name: string;
+  tables: string[];
+}
+
 /**
  * Money accounts. "Petty cash" is the CAFE's cash box (the stored value stays "Petty cash" so old rows keep working);
  * "Villa petty cash" is the villa's own cash box. The Bank is shared.
@@ -82,6 +99,10 @@ export interface OrderLine {
   payment_method: PaymentMethod;
   notes: string;
   entered_by: string;
+  /** Dine-in / Take-away / Uber ("" on orders saved before this existed). */
+  order_type: OrderType | "";
+  /** Dine-in table, e.g. "Garden 2" ("" otherwise). */
+  table_no: string;
 }
 
 export interface DailyCost {
@@ -282,6 +303,8 @@ export interface Settings {
   receipt_width_mm: number;
   uber_markup_pct: number;
   uber_commission_pct: number;
+  /** Dine-in tables by area, in display order (first area blue, second green). */
+  dining_areas: DiningArea[];
 }
 
 /** Raw key/value row of the Settings tab. */

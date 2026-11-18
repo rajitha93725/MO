@@ -1,6 +1,6 @@
 // Sample (fake) operating data for the local in-memory demo mode only (DATA_BACKEND=memory).
 // Never written to the Google Sheet.
-import type { CashMovement, DailyCost, FixedPayment, MenuItem, OrderLine, Todo, FixedCost, Meal, PaymentMethod } from "../types";
+import type { CashMovement, DailyCost, FixedPayment, MenuItem, OrderLine, Todo, FixedCost, Meal, OrderType, PaymentMethod } from "../types";
 import { addDays } from "../calc/dates";
 
 function rng(seed: number) {
@@ -49,6 +49,8 @@ export function buildSample(menu: MenuItem[], monthlyFixed: FixedCost[], from = 
         const order_id = `ORD-${d.replace(/-/g, "")}-${String(orderNo).padStart(4, "0")}`;
         const pay: PaymentMethod = r() < 0.55 ? "Cash" : r() < 0.85 ? "Card" : "Bank transfer";
         const items: [MenuItem, number][] = [[pick(mains), 1 + (r() < 0.3 ? 1 : 0)], [pick(drinks), 1 + (r() < 0.4 ? 1 : 0)]];
+        const order_type: OrderType = r() < 0.65 ? "Dine-in" : "Take-away";
+        const table_no = order_type === "Dine-in" ? `${r() < 0.5 ? "Upstairs" : "Garden"} ${1 + Math.floor(r() * 5)}` : "";
         items.forEach(([m, qty], li) =>
           orders.push({
             line_id: `${order_id}-${li + 1}`,
@@ -66,6 +68,8 @@ export function buildSample(menu: MenuItem[], monthlyFixed: FixedCost[], from = 
             payment_method: pay,
             notes: "",
             entered_by: "sample",
+            order_type,
+            table_no,
           }),
         );
       }

@@ -16,6 +16,17 @@ export interface ReceiptOrder {
   payment_method: string;
   notes: string;
   lines: ReceiptLine[];
+  /** Dine-in / Take-away / Uber, printed big for the kitchen (missing on old orders). */
+  order_type?: string;
+  table_no?: string;
+}
+
+/** Kitchen line: where the food goes. */
+export function serviceLine(o: Pick<ReceiptOrder, "order_type" | "table_no">): string {
+  if (o.order_type === "Dine-in") return `DINE-IN · ${o.table_no || "no table"}`;
+  if (o.order_type === "Take-away") return "TAKE-AWAY · PACK";
+  if (o.order_type === "Uber") return "UBER · PACK";
+  return "";
 }
 
 export interface ReceiptSettings {
@@ -39,6 +50,7 @@ export function receiptHtml(o: ReceiptOrder, s: ReceiptSettings): string {
   return [
     `<div class="r-center"><div class="r-title">${esc(s.receipt_name)}</div>${s.receipt_address ? `<div>${esc(s.receipt_address)}</div>` : ""}</div>`,
     `<div class="r-rule"></div>`,
+    serviceLine(o) ? `<div class="r-service">${esc(serviceLine(o))}</div><div class="r-rule"></div>` : "",
     `<div class="r-row"><span>${esc(o.date)} ${esc(o.time)}</span><span>${esc(o.meal)}</span></div>`,
     `<div>Order ${esc(o.order_id)}</div>`,
     `<div class="r-rule"></div>`,

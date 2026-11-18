@@ -1,7 +1,7 @@
 // Monthly report: one month of sales, orders, costs, fixed costs and profit (cafe),
 // plus villa, cash and combined shares for the owner. Pure functions only.
 import type { Account, CashMovement, DailyCost, MenuItem, MonthKey, OrderLine, PaymentMethod, VillaRecord } from "../types";
-import { ACCOUNTS, CAFE_ACCOUNTS, ALL_PAYMENT_METHODS, MEALS } from "../types";
+import { ACCOUNTS, CAFE_ACCOUNTS, ALL_PAYMENT_METHODS, MEALS, ORDER_TYPES, orderTypeOf } from "../types";
 import { addDays, addMonths, daysInMonth, monthOf } from "./dates";
 import { ratio, sum } from "./money";
 import { daySummary } from "./daily";
@@ -17,6 +17,8 @@ export interface ReportOrder {
   time: string;
   meal: string;
   payment_method: PaymentMethod;
+  order_type: string; // Dine-in / Take-away / Uber / Not recorded
+  table_no: string;
   items: string; // "2× Rice & curry, 1× Lime juice"
   qty: number;
   total: number;
@@ -54,6 +56,8 @@ export interface CafeReport {
   days: { date: string; orders: number; sales: number; foodCost: number; target: number; vsTarget: number }[];
   byMeal: (GroupRow & { foodCost: number; orders: number })[];
   byPayment: GroupRow[];
+  /** Orders by Dine-in / Take-away / Uber ("Not recorded" = saved before order types existed). */
+  byOrderType: GroupRow[];
   byCategory: GroupRow[];
   items: ItemRow[];
   orderList: ReportOrder[];
@@ -106,6 +110,8 @@ export function groupOrders(lines: OrderLine[]): ReportOrder[] {
       time: ls[0].time,
       meal: ls[0].meal,
       payment_method: ls[0].payment_method,
+      order_type: orderTypeOf(ls[0]) || "Not recorded",
+      table_no: ls[0].table_no ?? "",
       items: ls.map((l) => `${l.qty}× ${l.item_name}`).join(", "),
       qty: sum(ls, (l) => l.qty),
       total: sum(ls, (l) => l.line_total),
@@ -158,6 +164,7 @@ export function cafeReport(month: MonthKey, input: ProfitInputs, menu: MenuItem[
     byMeal,
     // count = number of orders paid that way
     byPayment: by(orderList, (o) => o.payment_method, (o) => o.total, ALL_PAYMENT_METHODS),
+    byOrderType: by(orderList, (o) => o.order_type, (o) => o.total, ORDER_TYPES),
     byCategory: by(lines, (l) => categoryOf.get(l.item_id) ?? "-", (l) => l.line_total),
     items,
     orderList,

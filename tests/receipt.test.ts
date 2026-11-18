@@ -40,3 +40,15 @@ describe("receipt item names", () => {
     expect(receiptItemName("Latte", "")).toBe("Latte");
   });
 });
+
+describe("kitchen line on the receipt", () => {
+  it("says where the food goes", async () => {
+    const { serviceLine } = await import("../src/lib/receipt");
+    expect(serviceLine({ order_type: "Dine-in", table_no: "Garden 2" })).toBe("DINE-IN · Garden 2");
+    expect(serviceLine({ order_type: "Take-away" })).toBe("TAKE-AWAY · PACK");
+    expect(serviceLine({ order_type: "Uber" })).toBe("UBER · PACK");
+    expect(serviceLine({})).toBe("");
+    const h = receiptHtml({ ...order, order_type: "Dine-in", table_no: "Upstairs 3" }, settings);
+    expect(h).toContain('<div class="r-service">DINE-IN · Upstairs 3</div>');
+  });
+});

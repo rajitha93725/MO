@@ -24,7 +24,7 @@ export const HEADERS: Record<TabKey, string[]> = {
   priceHistory: ["history_id", "item_id", "effective_date", "old_cost", "old_price", "new_cost", "new_price", "changed_by"],
   orders: [
     "order_id", "date", "time", "meal", "item_id", "item_name", "qty", "unit_price", "line_total",
-    "unit_cost", "line_cost", "payment_method", "notes", "line_id", "entered_by",
+    "unit_cost", "line_cost", "payment_method", "notes", "line_id", "entered_by", "order_type", "table_no",
   ],
   dailyCosts: ["cost_id", "date", "category", "description", "amount", "paid_from", "paid_by", "notes", "entered_by"],
   fixedCosts: ["fixed_id", "name", "amount", "frequency", "start_month", "end_month", "month_paid", "paid_from", "notes"],

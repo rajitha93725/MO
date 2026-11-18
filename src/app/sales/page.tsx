@@ -9,6 +9,7 @@ import { CsvButton, Tip } from "@/components/ui";
 import { StorageError } from "@/components/StorageError";
 import { DeleteOrderButton } from "./DeleteOrderButton";
 import { HEADERS } from "@/lib/data/schema";
+import { orderTypeOf } from "@/lib/types";
 
 export default async function SalesPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
   const user = await requirePage("any");
@@ -86,7 +87,22 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
             <div className="grow">
               <div className="spread"><b>{g.lines[0].time} · {g.lines[0].meal}</b><b className="num">{rs(g.total)}</b></div>
               <div className="small muted">{g.lines.map((l) => `${l.qty}× ${l.item_name}`).join(", ")}</div>
-              <div className="small"><span className={`badge ${g.lines[0].payment_method === "Uber" ? "uber" : ""}`}>{g.lines[0].payment_method === "Uber" ? "🛵 Uber" : g.lines[0].payment_method}</span> {g.lines[0].notes}</div>
+              <div className="small row" style={{ gap: 6 }}>
+                {(() => {
+                  const ot = orderTypeOf(g.lines[0]);
+                  const tn = g.lines[0].table_no;
+                  const area = settings.dining_areas.findIndex((a) => a.tables.includes(tn));
+                  return (
+                    <>
+                      {ot === "Dine-in" && <span className={`badge table area-${Math.max(0, area)}`}>🍽️ {tn || "Dine-in"}</span>}
+                      {ot === "Take-away" && <span className="badge">📦 Take-away</span>}
+                      {ot === "Uber" && <span className="badge uber">🛵 Uber</span>}
+                      {ot !== "Uber" && <span className="badge">{g.lines[0].payment_method}</span>}
+                    </>
+                  );
+                })()}
+                <span>{g.lines[0].notes}</span>
+              </div>
             </div>
             <a className="btn small" href={`/receipt/${encodeURIComponent(g.id)}`} aria-label="Print receipt">🖨</a>
             {user.role === "partner" && <DeleteOrderButton orderId={g.id} />}

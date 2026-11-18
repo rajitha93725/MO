@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { saveOrder } from "@/app/actions";
 import { useAction } from "@/components/ui";
-import { PAYMENT_METHODS, type Meal, type MenuItem, type OrderChannel, type PaymentMethod } from "@/lib/types";
+import { ORDER_TYPES, ORDER_TYPE_ICON, PAYMENT_METHODS, type DiningArea, type Meal, type MenuItem, type OrderChannel, type OrderType, type PaymentMethod } from "@/lib/types";
 import { uberCommission, uberPrice } from "@/lib/calc/uber";
 import { printReceipt } from "@/components/printReceipt";
 import type { ReceiptOrder, ReceiptSettings } from "@/lib/receipt";
@@ -18,18 +18,26 @@ export interface UberSettings {
 }
 
 export function OrderEntry({
-  menu, today, defaultMeal, categories: settingCats, uber: uberSettings, defaultChannel = "Cafe", receiptSettings,
+  menu, today, defaultMeal, categories: settingCats, uber: uberSettings, defaultChannel = "Cafe", receiptSettings, areas,
 }: {
   menu: MenuItem[]; today: string; defaultMeal: Meal; categories: string[]; uber: UberSettings;
-  defaultChannel?: OrderChannel; receiptSettings: ReceiptSettings;
+  defaultChannel?: OrderChannel; receiptSettings: ReceiptSettings; areas: DiningArea[];
 }) {
   // Settings order first; then any category in use but not listed in Settings.
   const categories = useMemo(
     () => [...settingCats.filter((c) => menu.some((m) => m.category === c)), ...Array.from(new Set(menu.map((m) => m.category))).filter((c) => !settingCats.includes(c))],
     [menu, settingCats],
   );
-  const [channel, setChannel] = useState<OrderChannel>(defaultChannel);
-  const isUber = channel === "Uber";
+  const [type, setType] = useState<OrderType>(defaultChannel === "Uber" ? "Uber" : "Dine-in");
+  const [table, setTable] = useState("");
+  const [pickTable, setPickTable] = useState(true);
+  const isUber = type === "Uber";
+  const needsTable = type === "Dine-in" && !table;
+  const areaOf = (t: string) => Math.max(0, areas.findIndex((a) => a.tables.includes(t)));
+  const chooseType = (t: OrderType) => {
+    setType(t);
+    if (t === "Dine-in" && !table) setPickTable(true);
+  };
   // Price shown and charged for an item in the current channel.
   const priceOf = (m: MenuItem) => (isUber ? uberPrice(m.selling_price, uberSettings) : m.selling_price);
   const [pay, setPay] = useState<PaymentMethod>("Cash");
@@ -72,11 +80,14 @@ export function OrderEntry({
 
   const submit = () =>
     call(
-      () => saveOrder({ channel, payment_method: isUber ? "Uber" : pay, notes, date, lines: lines.map((l) => ({ item_id: l.item.item_id, qty: l.qty })) }),
+      () => saveOrder({ channel: isUber ? "Uber" : "Cafe", order_type: type, table_no: type === "Dine-in" ? table : "", payment_method: isUber ? "Uber" : pay, notes, date, lines: lines.map((l) => ({ item_id: l.item.item_id, qty: l.qty })) }),
       (r) => {
         setCart({});
         setNotes("");
         setShowCart(false);
+        // Next guest: pick the table again.
+        setTable("");
+        setPickTable(true);
         // Print right here (no page change), so the next order can start straight away.
         if (r.receipt) {
           setLastReceipt(r.receipt);
@@ -93,9 +104,37 @@ export function OrderEntry({
       </div>
 
       <div className="seg channel" role="group" aria-label="Order type">
-        <button type="button" className={!isUber ? "on" : ""} aria-pressed={!isUber} onClick={() => setChannel("Cafe")}>☕ Cafe</button>
-        <button type="button" className={isUber ? "on uber" : ""} aria-pressed={isUber} onClick={() => setChannel("Uber")}>🛵 Uber</button>
+        {ORDER_TYPES.map((t) => (
+          <button key={t} type="button" className={`${type === t ? "on" : ""} ${t === "Uber" && type === t ? "uber" : ""}`} aria-pressed={type === t} onClick={() => chooseType(t)}>
+            <span aria-hidden>{ORDER_TYPE_ICON[t]}</span> {t}
+          </button>
+        ))}
       </div>
+
+      {type === "Dine-in" && (table && !pickTable ? (
+        <div className="row table-picked">
+          <span className="small muted">Table</span>
+          <span className={`table-chip on area-${areaOf(table)}`}>🍽️ {table}</span>
+          <button type="button" className="small" onClick={() => setPickTable(true)}>Change</button>
+        </div>
+      ) : (
+        <div className="table-pick" role="group" aria-label="Table">
+          {areas.map((a, i) => (
+            <div key={a.name} className="table-area">
+              <span className={`area-name area-${i}`}>{a.name}</span>
+              <div className="table-row">
+                {a.tables.map((t) => (
+                  <button key={t} type="button" className={`table-chip area-${i} ${table === t ? "on" : ""}`} aria-pressed={table === t} aria-label={t}
+                    onClick={() => { setTable(t); setPickTable(false); }}>
+                    {t.slice(a.name.length).trim() || t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+      {type === "Take-away" && <div className="pack-note small">📦 Take-away – the kitchen packs this order.</div>}
       {isUber && (
         <div className="uber-note small">
           Uber prices = menu price + {uberSettings.uber_markup_pct}%. Paid to <b>Bank</b>. Uber commission ({uberSettings.uber_commission_pct}% of the total) is saved as a daily cost automatically.
@@ -148,7 +187,7 @@ export function OrderEntry({
           {showCart && (
             <div className="stack" style={{ maxHeight: "45vh", overflowY: "auto" }}>
               <div className="spread cart-head">
-                <b>Review order</b>
+                <b>{ORDER_TYPE_ICON[type]} {type === "Dine-in" ? table || "Pick a table" : type === "Take-away" ? "Take-away · pack" : "Uber · pack"}</b>
                 <button type="button" className="small" onClick={() => setShowCart(false)} aria-label="Hide the order review to add more items">▾ Hide · add more items</button>
               </div>
               {lines.map((l) => (
@@ -188,8 +227,8 @@ export function OrderEntry({
               <b>{rs(total)}</b>
             </button>
             {count > 0 && !showCart && <button type="button" onClick={() => setCart({})} className="small">Clear</button>}
-            <button type="button" className="primary" disabled={!count || pending} onClick={() => (showCart ? submit() : setShowCart(true))} style={{ flex: 1 }}>
-              {pending ? "Saving…" : showCart ? `Save · ${isUber ? "Uber" : pay}` : "Review"}
+            <button type="button" className="primary" disabled={!count || pending || (showCart && needsTable)} onClick={() => (showCart ? submit() : setShowCart(true))} style={{ flex: 1 }}>
+              {pending ? "Saving…" : showCart ? (needsTable ? "Pick a table first" : `Save · ${isUber ? "Uber" : pay}`) : "Review"}
             </button>
           </div>
         </div>

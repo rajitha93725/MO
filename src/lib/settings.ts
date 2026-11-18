@@ -1,4 +1,4 @@
-import type { MenuCategory, Partner, Settings, SettingRow, TargetPeriod, VillaPlatform, VillaRoom } from "./types";
+import type { DiningArea, MenuCategory, Partner, Settings, SettingRow, TargetPeriod, VillaPlatform, VillaRoom } from "./types";
 
 /**
  * Default Settings rows. These are written to the Settings tab by the setup script
@@ -45,8 +45,21 @@ export const DEFAULT_SETTING_ROWS: SettingRow[] = [
   { key: "receipt_footer", value: "Thank you! Come again", description: "Receipt: line printed at the bottom" },
   { key: "receipt_width_mm", value: "80", description: "Receipt paper width in mm (80 or 58 for receipt printers)" },
   { key: "uber_markup_pct", value: "33.4", description: "Uber orders: % added to the menu price (rounded up to the next Rs 10)" },
+  { key: "dining_tables", value: "Upstairs:5,Garden:5", description: "Dine-in tables as Area:number of tables (tables are named like 'Upstairs 1'). On the order screen the first area is blue, the second green" },
   { key: "uber_commission_pct", value: "25", description: "Uber orders: % of the Uber total that Uber keeps. Saved automatically as a Daily cost 'Uber commission' (Bank, Business)" },
 ];
+
+/** "Upstairs:5,Garden:5" -> [{ name: "Upstairs", tables: ["Upstairs 1", …] }, …]. */
+export function parseDiningTables(s: string): DiningArea[] {
+  const out = list(s).map((part) => {
+    const [name, n] = part.split(":").map((x) => (x ?? "").trim());
+    const count = Number(n);
+    if (!name || !Number.isInteger(count) || count < 1 || count > 50) throw new Error(`dining_tables: "${part}" must look like Area:number (e.g. Garden:5)`);
+    return { name, tables: Array.from({ length: count }, (_, i) => `${name} ${i + 1}`) };
+  });
+  if (new Set(out.map((a) => a.name.toLowerCase())).size !== out.length) throw new Error("dining_tables: area names must be unique");
+  return out;
+}
 
 /** "Brunch:B,All Day Menu:A" -> [{ name: "Brunch", prefix: "B" }, …]. Names may not contain ":" or ",". */
 export function parseMenuCategories(s: string): MenuCategory[] {
@@ -190,6 +203,7 @@ export function parseSettings(rows: SettingRow[], targets: TargetPeriod[]): Sett
     receipt_width_mm: Math.min(210, Math.max(40, toNum(g("receipt_width_mm"), "receipt_width_mm"))),
     uber_markup_pct: pctSetting(g("uber_markup_pct"), "uber_markup_pct"),
     uber_commission_pct: pctSetting(g("uber_commission_pct"), "uber_commission_pct"),
+    dining_areas: parseDiningTables(g("dining_tables")),
   };
 }
 

@@ -285,6 +285,7 @@ table.cal td.cal-booked a { display: flex; align-items: center; justify-content:
 .receipt .r-row { display: flex; justify-content: space-between; gap: 8px; }
 .receipt .r-total { font-weight: 700; font-size: 15px; }
 .receipt .r-small { font-size: 11px; color: #333; }
+.receipt .r-service { text-align: center; font-size: 18px; font-weight: 800; letter-spacing: 0.04em; padding: 4px 0; }
 @media print {
   .receipt { border: 0; padding: 0; border-radius: 0; }
 }
@@ -373,3 +374,33 @@ table.cal td.cal-booked a { display: flex; align-items: center; justify-content:
   .mcard-hero h1 { font-size: 1.8rem; }
 }
 @media (prefers-reduced-motion: reduce) { .mcard-photo { transition: none; transform: none; } }
+
+/* ---------- order type & tables ---------- */
+.seg.channel button { font-size: 0.9rem; white-space: nowrap; padding-left: 4px; padding-right: 4px; }
+.table-pick { display: grid; gap: 8px; }
+.table-area { display: flex; align-items: center; gap: 10px; }
+.area-name { width: 78px; flex: none; font-size: 0.8rem; font-weight: 700; }
+.table-row { display: flex; gap: 6px; flex: 1; }
+.table-chip { flex: 1; min-height: 44px; min-width: 0; padding: 0 6px; border-radius: 12px; font-weight: 800; font-size: 1rem; justify-content: center; border: 2px solid; }
+.table-picked { align-items: center; }
+.table-picked .table-chip { flex: none; padding: 0 14px; min-height: 36px; font-size: 0.92rem; display: inline-flex; align-items: center; }
+/* area 0 (Upstairs) = blue, area 1 (Garden) = green, area 2 = purple */
+.area-name.area-0 { color: #1d63c9; } .area-name.area-1 { color: #1a8a4a; } .area-name.area-2 { color: #7a3fc4; }
+.table-chip.area-0 { border-color: #1d63c9; color: #1d63c9; background: #e8f0fc; }
+.table-chip.area-1 { border-color: #1a8a4a; color: #1a8a4a; background: #e4f5ea; }
+.table-chip.area-2 { border-color: #7a3fc4; color: #7a3fc4; background: #f1e9fb; }
+.table-chip.on.area-0 { background: #1d63c9; color: #fff; }
+.table-chip.on.area-1 { background: #1a8a4a; color: #fff; }
+.table-chip.on.area-2 { background: #7a3fc4; color: #fff; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .table-chip.area-0:not(.on) { background: #13243d; color: #8fb6f0; border-color: #4f86d8; }
+  :root:not([data-theme="light"]) .table-chip.area-1:not(.on) { background: #10291a; color: #7fd1a0; border-color: #3fa86a; }
+  :root:not([data-theme="light"]) .table-chip.area-2:not(.on) { background: #26183a; color: #c3a3ee; border-color: #9a6ad9; }
+  :root:not([data-theme="light"]) .area-name.area-0 { color: #8fb6f0; }
+  :root:not([data-theme="light"]) .area-name.area-1 { color: #7fd1a0; }
+  :root:not([data-theme="light"]) .area-name.area-2 { color: #c3a3ee; }
+}
+.pack-note { padding: 8px 12px; border-radius: 10px; background: var(--surface-2); }
+.badge.table.area-0 { background: #1d63c9; color: #fff; }
+.badge.table.area-1 { background: #1a8a4a; color: #fff; }
+.badge.table.area-2 { background: #7a3fc4; color: #fff; }
