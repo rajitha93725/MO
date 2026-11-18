@@ -20,11 +20,12 @@ const wantsPrint = () => {
 };
 
 /** Add items, print the bill, take payment, or void the whole bill. */
-export function BillActions({ orderId, total, receipt, receiptSettings, authorisers, hasItems }: {
-  orderId: string; total: number; receipt: ReceiptOrder; receiptSettings: ReceiptSettings; authorisers: string[]; hasItems: boolean;
+export function BillActions({ orderId, uber, invoiceNo, total, receipt, receiptSettings, authorisers, hasItems }: {
+  orderId: string; uber: boolean; invoiceNo: string; total: number; receipt: ReceiptOrder; receiptSettings: ReceiptSettings; authorisers: string[]; hasItems: boolean;
 }) {
   const router = useRouter();
   const [pay, setPay] = useState<PaymentMethod>("Cash");
+  const [inv, setInv] = useState(invoiceNo);
   const [confirming, setConfirming] = useState(false);
   const { pending, call, ui } = useAction();
   return (
@@ -34,7 +35,23 @@ export function BillActions({ orderId, total, receipt, receiptSettings, authoris
         <button type="button" style={{ flex: 1 }} disabled={!hasItems} onClick={() => printReceipt(receipt, receiptSettings)}>🖨 Print bill</button>
       </div>
 
-      {hasItems && (
+      {hasItems && uber && (
+        <div className="card stack">
+          <b>🛵 Rider picked it up – complete the Uber order</b>
+          <label className="field"><span>Uber invoice no. *</span>
+            <input value={inv} onChange={(e) => setInv(e.target.value)} placeholder="e.g. 3F2A9" autoCapitalize="characters" spellCheck={false} maxLength={40} />
+          </label>
+          <button type="button" className="primary" disabled={pending || !inv.trim()}
+            onClick={() => call(() => payBill(orderId, "Uber", inv), (r) => {
+              if (r.receipt && wantsPrint()) printReceipt(r.receipt, receiptSettings);
+              router.push("/bills");
+            })}>
+            {pending ? "Saving…" : inv.trim() ? `✓ Completed · Uber ${rs(total)}` : "Type the Uber invoice no."}
+          </button>
+          <div className="small muted">Uber pays to the bank; the commission is saved as a daily cost now.</div>
+        </div>
+      )}
+      {hasItems && !uber && (
         <div className="card stack">
           <b>Customer pays</b>
           <div className="seg" role="group" aria-label="Payment method">

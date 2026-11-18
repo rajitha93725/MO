@@ -18,6 +18,7 @@ export interface ReportOrder {
   meal: string;
   payment_method: PaymentMethod;
   order_type: string; // Dine-in / Take-away / Uber / Not recorded
+  invoice_no: string;
   table_no: string;
   items: string; // "2× Rice & curry, 1× Lime juice"
   qty: number;
@@ -112,6 +113,7 @@ export function groupOrders(lines: OrderLine[]): ReportOrder[] {
       payment_method: ls[0].payment_method as PaymentMethod,
       order_type: orderTypeOf(ls[0]) || "Not recorded",
       table_no: ls[0].table_no ?? "",
+      invoice_no: ls.find((l) => l.invoice_no)?.invoice_no ?? "",
       items: ls.map((l) => `${l.qty}× ${l.item_name}`).join(", "),
       qty: sum(ls, (l) => l.qty),
       total: sum(ls, (l) => l.line_total),

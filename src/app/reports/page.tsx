@@ -257,7 +257,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       {/* ---------- voids ---------- */}
       <Section
         title={`Voided items (${voids.length})`}
-        csv={<CsvButton filename={file("voids")} headers={["date", "time", "order_id", "item", "qty", "amount", "authorised_by", "reason", "entered_by"]} rows={voids.map((l) => [l.date, l.time, l.order_id, l.item_name, l.qty, l.line_total, l.void_by, l.void_reason, l.entered_by])} />}
+        csv={<CsvButton filename={file("voids")} headers={["date", "time", "order_id", "invoice_no", "item", "qty", "amount", "authorised_by", "reason", "entered_by"]} rows={voids.map((l) => [l.date, l.time, l.order_id, l.invoice_no, l.item_name, l.qty, l.line_total, l.void_by, l.void_reason, l.entered_by])} />}
       >
         <div className="table-wrap">
           <table className="small">
@@ -274,17 +274,17 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       {/* ---------- orders ---------- */}
       <Section
         title={`Order details (${r.orders})`}
-        csv={<CsvButton filename={file("orders")} headers={["order_id", "date", "time", "meal", "order_type", "table_no", "payment_method", "items", "qty", "total", "food_cost", "entered_by"]} rows={r.orderList.map((x) => [x.order_id, x.date, x.time, x.meal, x.order_type, x.table_no, x.payment_method, x.items, x.qty, x.total, x.cost, x.entered_by])} />}
+        csv={<CsvButton filename={file("orders")} headers={["order_id", "invoice_no", "date", "time", "meal", "order_type", "table_no", "payment_method", "items", "qty", "total", "food_cost", "entered_by"]} rows={r.orderList.map((x) => [x.order_id, x.invoice_no, x.date, x.time, x.meal, x.order_type, x.table_no, x.payment_method, x.items, x.qty, x.total, x.cost, x.entered_by])} />}
       >
         <div className="table-wrap report-long">
           <table className="small">
-            <thead><tr><th>Date</th><th>Time</th><th>Meal</th><th>Type</th><th>Items</th><th>Paid</th><th className="num">Total</th><th>By</th></tr></thead>
+            <thead><tr><th>Date</th><th>Time</th><th>Invoice</th><th>Meal</th><th>Type</th><th>Items</th><th>Paid</th><th className="num">Total</th><th>By</th></tr></thead>
             <tbody>
               {r.orderList.map((x) => (
-                <tr key={x.order_id}><td style={{ whiteSpace: "nowrap" }}>{x.date}</td><td>{x.time}</td><td>{x.meal}</td><td style={{ whiteSpace: "nowrap" }}>{x.order_type === "Dine-in" ? `🍽️ ${x.table_no}` : x.order_type === "Take-away" ? "📦 Take-away" : x.order_type === "Uber" ? "🛵 Uber" : "-"}</td><td>{x.items}</td><td>{x.payment_method}</td><td className="num">{num(x.total)}</td><td>{x.entered_by}</td></tr>
+                <tr key={x.order_id}><td style={{ whiteSpace: "nowrap" }}>{x.date}</td><td>{x.time}</td><td style={{ whiteSpace: "nowrap" }}>{x.invoice_no || "-"}</td><td>{x.meal}</td><td style={{ whiteSpace: "nowrap" }}>{x.order_type === "Dine-in" ? `🍽️ ${x.table_no}` : x.order_type === "Take-away" ? "📦 Take-away" : x.order_type === "Uber" ? "🛵 Uber" : "-"}</td><td>{x.items}</td><td>{x.payment_method}</td><td className="num">{num(x.total)}</td><td>{x.entered_by}</td></tr>
               ))}
-              {r.orderList.length === 0 && <tr><td colSpan={8} className="muted">No orders this month</td></tr>}
-              {r.orderList.length > 0 && <tr className="total"><td colSpan={6}>Total</td><td className="num">{num(p.sales)}</td><td></td></tr>}
+              {r.orderList.length === 0 && <tr><td colSpan={9} className="muted">No orders this month</td></tr>}
+              {r.orderList.length > 0 && <tr className="total"><td colSpan={7}>Total</td><td className="num">{num(p.sales)}</td><td></td></tr>}
             </tbody>
           </table>
         </div>

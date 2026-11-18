@@ -85,7 +85,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
         {grouped.map((g) => (
           <div key={g.id} className="item" style={{ alignItems: "flex-start" }}>
             <div className="grow">
-              <div className="spread"><b>{g.lines[0].time} · {g.lines[0].meal}</b><b className="num">{rs(g.total)}</b></div>
+              <div className="spread"><b>{g.lines[0].time} · {g.lines[0].meal}{g.lines[0].invoice_no ? ` · ${g.lines[0].invoice_no}` : ""}</b><b className="num">{rs(g.total)}</b></div>
               <div className="small muted">{g.lines.map((l) => `${l.qty}× ${l.item_name}`).join(", ")}</div>
               <div className="small row" style={{ gap: 6 }}>
                 {(() => {

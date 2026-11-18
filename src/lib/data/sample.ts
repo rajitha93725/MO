@@ -42,11 +42,14 @@ export function buildSample(menu: MenuItem[], monthlyFixed: FixedCost[], from = 
   ];
 
   for (let d = from; d <= to; d = addDays(d, 1)) {
+    const dayNo: Record<string, number> = {};
     for (const [meal, time, avgOrders, mains] of meals) {
       const n = Math.max(1, Math.round(avgOrders * (0.6 + r() * 0.8)));
       for (let i = 0; i < n; i++) {
         orderNo++;
         const order_id = `ORD-${d.replace(/-/g, "")}-${String(orderNo).padStart(4, "0")}`;
+        dayNo[d] = (dayNo[d] ?? 20) + 1;
+        const invoice_no = `${d.slice(2, 4)}${d.slice(5, 7)}${d.slice(8, 10)}_${String(dayNo[d]).padStart(3, "0")}`;
         const pay: PaymentMethod = r() < 0.55 ? "Cash" : r() < 0.85 ? "Card" : "Bank transfer";
         const items: [MenuItem, number][] = [[pick(mains), 1 + (r() < 0.3 ? 1 : 0)], [pick(drinks), 1 + (r() < 0.4 ? 1 : 0)]];
         const order_type: OrderType = r() < 0.65 ? "Dine-in" : "Take-away";
@@ -73,6 +76,7 @@ export function buildSample(menu: MenuItem[], monthlyFixed: FixedCost[], from = 
             status: "Paid",
             void_by: "",
             void_reason: "",
+            invoice_no,
           }),
         );
       }

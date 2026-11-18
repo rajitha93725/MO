@@ -138,7 +138,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           <div className="label">🛵 Uber · today <Tip text={`${UBER_FORMULAS.price(settings)}. ${UBER_FORMULAS.commission(settings)}`} /></div>
           <div className="value">{rs(day.uberSales)}</div>
           <div className="sub">
-            Commission {rs(day.uberCommission)} · <Link href="/order?channel=uber">+ Uber order</Link>
+            Commission {rs(day.uberCommission)}
+            <Link href="/order?channel=uber" className="btn small uber-btn">🛵 + New Uber order</Link>
           </div>
         </div>
         {isPartner && (

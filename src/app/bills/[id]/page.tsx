@@ -36,7 +36,7 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
   };
   const receipt = {
     order_id: bill.order_id, date: bill.date, time: bill.time, meal: bill.lines[0]?.meal ?? "", payment_method: bill.lines[0]?.payment_method ?? "",
-    notes: bill.notes, order_type: bill.order_type, table_no: bill.table_no, status: open ? "Open" : "Paid",
+    notes: bill.notes, order_type: bill.order_type, table_no: bill.table_no, status: open ? "Open" : "Paid", invoice_no: bill.invoice_no,
     lines: bill.lines.map((l) => ({ item_name: receiptItemName(l.item_name, sub(l.item_id)), qty: l.qty, unit_price: l.unit_price, line_total: l.line_total })),
   };
 
@@ -46,7 +46,10 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
         <h1 style={{ margin: 0 }}>{billLabel(bill)}</h1>
         <span className={`badge ${open ? "warn" : bill.status === "Paid" ? "good" : "bad"}`}>{open ? "Open – not paid" : bill.status}</span>
       </div>
-      <div className="small muted">Opened {bill.date} {bill.time} · {bill.order_id}</div>
+      <div className="small muted">
+        {bill.invoice_no ? <>Invoice <b>{bill.invoice_no}</b> · </> : bill.order_type === "Uber" ? <>Uber invoice not typed yet · </> : null}
+        Opened {bill.date} {bill.time}
+      </div>
 
       <div className="card stack">
         {bill.lines.map((l) => (
@@ -77,7 +80,7 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
       </div>
 
       {open ? (
-        <BillActions orderId={bill.order_id} total={bill.total} receipt={receipt} receiptSettings={receiptSettings} authorisers={authorisers} hasItems={bill.lines.length > 0} />
+        <BillActions orderId={bill.order_id} uber={bill.order_type === "Uber"} invoiceNo={bill.invoice_no} total={bill.total} receipt={receipt} receiptSettings={receiptSettings} authorisers={authorisers} hasItems={bill.lines.length > 0} />
       ) : (
         <div className="row">
           <Link href={`/receipt/${encodeURIComponent(bill.order_id)}`} className="btn">🖨 Receipt</Link>

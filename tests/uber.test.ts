@@ -45,7 +45,7 @@ describe("Uber settings", () => {
 describe("uberDay", () => {
   const line = (o: Partial<OrderLine>): OrderLine => ({
     line_id: "x", order_id: "o", date: "2027-01-05", time: "10:00", meal: "Lunch", item_id: "A01", item_name: "x",
-    qty: 1, unit_price: 0, line_total: 0, unit_cost: 0, line_cost: 0, payment_method: "Cash", notes: "", entered_by: "", order_type: "", table_no: "", status: "", void_by: "", void_reason: "", ...o,
+    qty: 1, unit_price: 0, line_total: 0, unit_cost: 0, line_cost: 0, payment_method: "Cash", notes: "", entered_by: "", order_type: "", table_no: "", status: "", void_by: "", void_reason: "", invoice_no: "", ...o,
   });
   const cost = (o: Partial<DailyCost>): DailyCost => ({
     cost_id: "c", date: "2027-01-05", category: UBER_COST_CATEGORY, description: "", amount: 0, paid_from: "Bank", paid_by: "Business", notes: "", entered_by: "", ...o,

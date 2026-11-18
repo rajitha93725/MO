@@ -110,6 +110,7 @@ Written automatically whenever a partner changes an item's cost or price.
 | line_total | qty × unit_price |
 | line_cost | qty × unit_cost |
 | payment_method | Cash / Card / Bank transfer (Uber orders: Uber) |
+| invoice_no | Cafe orders: `YYMMDD_NNN`, numbered per day from **021** (e.g. `261118_021`, `261118_022`). Uber orders: the Uber invoice number, typed in (required to complete). Printed on the receipt and shown in Sales and reports |
 | status, void_by, void_reason | Open (bill not paid yet) / Paid / Void, and for voids who authorised it and why |
 | order_type, table_no | Dine-in (with a table like "Garden 2") / Take-away / Uber |
 | notes | Free text |
@@ -218,7 +219,7 @@ tests/                      unit tests (profit, cash, daily, validation, CSV)
 ```bash
 npm test
 ```
-157 tests cover the profit formulas, fixed-cost allocation (monthly, closed months, one-time full or spread), planned vs actual, partner split and rounding, YTD, cash and bank balances, transfers, the low-cash warning, the daily view, to-do urgency, validation, CSV escaping, the Supabase store and schema, passwords and the Users list, and MO Villa (nights, commission and payout, splitting stays across months, double booking, monthly villa profit, occupancy, per-room profit, cash and combined profit).
+160 tests cover the profit formulas, fixed-cost allocation (monthly, closed months, one-time full or spread), planned vs actual, partner split and rounding, YTD, cash and bank balances, transfers, the low-cash warning, the daily view, to-do urgency, validation, CSV escaping, the Supabase store and schema, passwords and the Users list, and MO Villa (nights, commission and payout, splitting stays across months, double booking, monthly villa profit, occupancy, per-room profit, cash and combined profit).
 
 ---
 
@@ -339,7 +340,9 @@ The order screen starts with three buttons: **🍽️ Dine-in**, **📦 Take-awa
 ## 14. Open bills (order now, pay after eating)
 
 - On **New order → Review** there are two ways to save: **🍳 Kitchen · pay later** (an *open bill*; the default for
-  dine-in) and **Pay now** (the default for take-away). Uber orders are always paid at once.
+  dine-in and Uber) and **Pay now** (the default for take-away). Uber orders stay open in the kitchen until the rider
+  picks them up (they can still be cancelled), then **✓ Completed** with the **Uber invoice number** typed in; the Uber
+  commission is recorded only then.
 - An open bill prints a **kitchen ticket** (items and table, no prices) and shows up in the 🧾 **Open bills** strip on
   the order screen, on Home and under **More → Open bills**. A dine-in table with an open bill is marked *open*;
   tapping it opens that bill, so the same table never gets two bills by mistake.

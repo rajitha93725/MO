@@ -57,6 +57,7 @@ export function OrderEntry({
   const [pay, setPay] = useState<PaymentMethod>("Cash");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState("");
+  const [uberInv, setUberInv] = useState("");
   const [date, setDate] = useState(today);
   // Breakfast opens the first category (e.g. Brunch); other meals open the second one if there is one.
   const [cat, setCat] = useState<string>((defaultMeal === "Breakfast" ? categories[0] : categories[1] ?? categories[0]) ?? "");
@@ -97,10 +98,12 @@ export function OrderEntry({
       () => saveOrder({
         channel: isUber ? "Uber" : "Cafe", order_type: type, table_no: type === "Dine-in" ? table : "", payment_method: isUber ? "Uber" : pay,
         notes, date, lines: lines.map((l) => ({ item_id: l.item.item_id, qty: l.qty })), open, bill_id: addTo?.order_id,
+        invoice_no: isUber ? uberInv : undefined,
       }),
       (r) => {
         setCart({});
         setNotes("");
+        setUberInv("");
         setShowCart(false);
         // Next guest: pick the table again.
         setTable("");
@@ -180,7 +183,8 @@ export function OrderEntry({
       )}
       {isUber && (
         <div className="uber-note small">
-          Uber prices = menu price + {uberSettings.uber_markup_pct}%. Paid to <b>Bank</b>. Uber commission ({uberSettings.uber_commission_pct}% of the total) is saved as a daily cost automatically.
+          Uber prices = menu price + {uberSettings.uber_markup_pct}%. Paid to <b>Bank</b>. Keep it in the kitchen until the rider picks it up (it can still be cancelled);
+          the Uber commission ({uberSettings.uber_commission_pct}%) is saved as a daily cost when the order is completed.
         </div>
       )}
 
@@ -250,11 +254,17 @@ export function OrderEntry({
               <input placeholder="Notes (table, guest, discount reason…)" value={notes} onChange={(e) => setNotes(e.target.value)} />
               <label className="row small"><input type="checkbox" checked={printAfter} onChange={(e) => togglePrint(e.target.checked)} /> Print receipt after saving</label>
               {addTo ? null : isUber ? (
+                <>
+                <label className="field">
+                  <span>Uber invoice no. {""}<span className="muted">(needed to complete; can be typed later on the bill)</span></span>
+                  <input value={uberInv} onChange={(e) => setUberInv(e.target.value)} placeholder="e.g. 3F2A9" autoCapitalize="characters" spellCheck={false} maxLength={40} />
+                </label>
                 <div className="uber-note sum small">
                   <div className="spread"><span>Uber order total</span><b>{rs(total)}</b></div>
                   <div className="spread"><span>Uber commission {uberSettings.uber_commission_pct}% → daily cost (Bank)</span><b>− {rs(commission)}</b></div>
                   <div className="spread"><span>Cafe receives</span><b>{rs(total - commission)}</b></div>
                 </div>
+                </>
               ) : (
                 <div className="seg" role="group" aria-label="Payment method">
                   {PAYMENT_METHODS.map((p) => (
@@ -279,7 +289,13 @@ export function OrderEntry({
             ) : needsTable ? (
               <button type="button" className="primary" disabled style={{ flex: 1 }}>Pick a table first</button>
             ) : isUber ? (
-              <button type="button" className="primary" onClick={() => submit(false)} style={{ flex: 1 }}>Save · Uber</button>
+              // Uber: keep it open in the kitchen (it can still be cancelled); complete it with the Uber invoice no.
+              <div className="row" style={{ flex: 1.6, gap: 6 }}>
+                <button type="button" className="primary" onClick={() => submit(true)} style={{ flex: 1 }}>🍳 Kitchen · complete later</button>
+                <button type="button" disabled={!uberInv.trim()} onClick={() => submit(false)} style={{ flex: 1 }} title={uberInv.trim() ? "" : "Type the Uber invoice no. first"}>
+                  {uberInv.trim() ? "Done · Uber" : "Uber no. needed"}
+                </button>
+              </div>
             ) : (
               // Dine-in usually pays after eating (open bill); take-away usually pays now. Both are offered.
               <div className="row" style={{ flex: 1.6, gap: 6 }}>

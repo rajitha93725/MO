@@ -66,3 +66,11 @@ describe("open bill printing", () => {
     expect(k).not.toContain("1,950");
   });
 });
+
+describe("invoice on the receipt", () => {
+  it("shows the invoice number instead of the internal order id", () => {
+    const h = receiptHtml({ ...order, invoice_no: "261118_021" }, settings);
+    expect(h).toContain("261118_021");
+    expect(h).not.toContain("Order ORD-1");
+  });
+});

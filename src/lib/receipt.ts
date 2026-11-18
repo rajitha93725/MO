@@ -21,6 +21,8 @@ export interface ReceiptOrder {
   table_no?: string;
   /** "Open" = bill shown before payment (prints "NOT PAID"). */
   status?: string;
+  /** YYMMDD_NNN, or the Uber invoice number. */
+  invoice_no?: string;
 }
 
 /** Kitchen line: where the food goes. */
@@ -54,7 +56,7 @@ export function receiptHtml(o: ReceiptOrder, s: ReceiptSettings): string {
     `<div class="r-rule"></div>`,
     serviceLine(o) ? `<div class="r-service">${esc(serviceLine(o))}</div><div class="r-rule"></div>` : "",
     `<div class="r-row"><span>${esc(o.date)} ${esc(o.time)}</span><span>${esc(o.meal)}</span></div>`,
-    `<div>Order ${esc(o.order_id)}</div>`,
+    o.invoice_no ? `<div class="r-row"><span>Invoice</span><b>${esc(o.invoice_no)}</b></div>` : `<div>Order ${esc(o.order_id)}</div>`,
     `<div class="r-rule"></div>`,
     `<table><tbody>${rows}</tbody></table>`,
     `<div class="r-rule"></div>`,
@@ -78,7 +80,7 @@ export function kitchenTicketHtml(o: ReceiptOrder, addOn = false): string {
     `<div class="r-center r-title">KITCHEN${addOn ? " · ADD-ON" : ""}</div>`,
     `<div class="r-rule"></div>`,
     serviceLine(o) ? `<div class="r-service">${esc(serviceLine(o))}</div>` : "",
-    `<div class="r-row"><span>${esc(o.date)} ${esc(o.time)}</span><span>${esc(o.order_id.slice(-4))}</span></div>`,
+    `<div class="r-row"><span>${esc(o.date)} ${esc(o.time)}</span><span>${esc(o.invoice_no || o.order_id.slice(-4))}</span></div>`,
     `<div class="r-rule"></div>`,
     `<table><tbody>${rows}</tbody></table>`,
     o.notes ? `<div class="r-rule"></div><div class="k-note">Note: ${esc(o.notes)}</div>` : "",

@@ -29,7 +29,7 @@ export default async function BillsPage() {
         {bills.map((b) => (
           <Link key={b.order_id} href={`/bills/${encodeURIComponent(b.order_id)}`} className="item" style={{ textDecoration: "none", color: "inherit" }}>
             <div className="grow">
-              <div className="spread"><b>{billLabel(b)}</b><b className="num">{rs(b.total)}</b></div>
+              <div className="spread"><b>{billLabel(b)}{b.invoice_no ? <span className="small muted"> · {b.invoice_no}</span> : null}</b><b className="num">{rs(b.total)}</b></div>
               <div className="small muted">Opened {b.date} {b.time} · {b.items} item{b.items === 1 ? "" : "s"}: {b.lines.map((l) => `${l.qty}× ${l.item_name}`).join(", ")}</div>
             </div>
             <span className="btn small">Open →</span>

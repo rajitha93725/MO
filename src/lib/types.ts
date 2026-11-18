@@ -117,6 +117,8 @@ export interface OrderLine {
   /** Voided lines: who authorised it and why. */
   void_by: string;
   void_reason: string;
+  /** Invoice number: YYMMDD_NNN (daily, from 021) for cafe orders; the Uber invoice number (typed in) for Uber. */
+  invoice_no: string;
 }
 
 export interface DailyCost {

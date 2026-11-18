@@ -40,6 +40,7 @@ export default async function ReceiptPage({ params, searchParams }: { params: Pr
     order_id: o.order_id, date: o.date, time: o.time, meal: o.meal, payment_method: o.payment_method,
     notes: lines.find((l) => l.notes)?.notes ?? "",
     order_type: orderTypeOf(o), table_no: o.table_no, status: lines.some((l) => l.status === "Open") ? "Open" : "Paid",
+    invoice_no: lines.find((l) => l.invoice_no)?.invoice_no ?? "",
     lines: lines.map((l) => ({
       item_name: receiptItemName(l.item_name, menu.find((m) => m.item_id === l.item_id)?.sub_category),
       qty: l.qty, unit_price: l.unit_price, line_total: l.line_total,

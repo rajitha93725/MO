@@ -17,6 +17,22 @@ export interface Bill {
   total: number;
   items: number;
   notes: string;
+  invoice_no: string;
+}
+
+/** First invoice number of each day (261118_021, 261118_022, …). */
+export const FIRST_DAILY_INVOICE = 21;
+
+/** Next cafe invoice number for a date: YYMMDD_NNN, counting up from 021 each day (voided bills keep theirs). */
+export function nextInvoiceNo(date: string, lines: Pick<OrderLine, "invoice_no">[]): string {
+  const prefix = `${date.slice(2, 4)}${date.slice(5, 7)}${date.slice(8, 10)}_`;
+  let max = FIRST_DAILY_INVOICE - 1;
+  for (const l of lines) {
+    if (!l.invoice_no?.startsWith(prefix)) continue;
+    const n = Number(l.invoice_no.slice(prefix.length));
+    if (Number.isInteger(n) && n > max) max = n;
+  }
+  return prefix + String(max + 1).padStart(3, "0");
 }
 
 /** All bills found in the order lines (one per order_id), oldest first. */
@@ -40,6 +56,7 @@ export function groupBills(lines: OrderLine[]): Bill[] {
         total: sum(live, (l) => l.line_total),
         items: sum(live, (l) => l.qty),
         notes: ls.find((l) => l.notes)?.notes ?? "",
+        invoice_no: ls.find((l) => l.invoice_no)?.invoice_no ?? "",
       };
     })
     .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));

@@ -17,7 +17,7 @@ import { mealForTime } from "@/lib/calc/meal";
 import { buildUsers, type UserForm } from "@/lib/users";
 import { capitalAccountAllowed } from "@/lib/calc/capital";
 import { hashPassword, loginLocked, recordLogin, verifyPassword } from "@/lib/password";
-import { groupBills, nextLineNo } from "@/lib/calc/bills";
+import { groupBills, nextInvoiceNo, nextLineNo } from "@/lib/calc/bills";
 import { UBER_COST_CATEGORY, uberCommission, uberCostId, uberPrice } from "@/lib/calc/uber";
 
 export type ActionResult =
@@ -55,8 +55,10 @@ export interface OrderInput {
   notes?: string;
   date?: string;
   lines: { item_id: string; qty: number }[];
-  /** true = open bill: send to the kitchen now, pay later (not for Uber). */
+  /** true = open bill: send to the kitchen now, pay (or complete, for Uber) later. */
   open?: boolean;
+  /** Uber orders: the Uber invoice number (typed in; needed to complete the order). */
+  invoice_no?: string;
   /** Add these items to this open bill (its type, table and date are kept). */
   bill_id?: string;
 }
@@ -67,6 +69,7 @@ function receiptFor(lines: OrderLine[], menu: MenuItem[], extra: Partial<Receipt
   return {
     order_id: o.order_id, date: o.date, time: o.time, meal: o.meal, payment_method: o.payment_method,
     notes: lines.find((l) => l.notes)?.notes ?? "", order_type: orderTypeOf(o), table_no: o.table_no,
+    invoice_no: lines.find((l) => l.invoice_no)?.invoice_no ?? "",
     lines: lines.map((r) => ({
       item_name: receiptItemName(r.item_name, menu.find((m) => m.item_id === r.item_id)?.sub_category),
       qty: r.qty, unit_price: r.unit_price, line_total: r.line_total,
@@ -86,12 +89,19 @@ export async function saveOrder(input: OrderInput): Promise<ActionResult> {
     if (input.bill_id && (!bill || bill.status !== "Open")) throw new Error("This bill is not open any more (paid or voided).");
     const order_type = bill ? bill.order_type || "Take-away" : v.oneOf("Order type", input.order_type || (input.channel === "Uber" ? "Uber" : ""), ORDER_TYPES);
     const uber = order_type === "Uber";
-    const open = Boolean(bill) || (Boolean(input.open) && !uber);
+    const open = Boolean(bill) || Boolean(input.open);
     const table_no = bill ? bill.table_no : order_type === "Dine-in" ? v.oneOf("Table", input.table_no, settings.dining_areas.flatMap((a) => a.tables)) : "";
     const payment_method = open ? "" : uber ? "Uber" : v.oneOf("Payment method", input.payment_method, PAYMENT_METHODS);
     const date = bill ? bill.date : v.date("Date", input.date || today(settings));
     v.check(input.lines.length > 0, "Add at least one item");
     input.lines.forEach((l, i) => v.qty(`Quantity (line ${i + 1})`, l.qty));
+    // Uber: the Uber invoice number is typed in (needed to complete); cafe orders get the next YYMMDD_NNN.
+    const uberInvoice = (input.invoice_no ?? "").trim();
+    if (uber && !bill) {
+      v.check(uberInvoice.length <= 40, "Uber invoice number is too long");
+      if (!open) v.check(Boolean(uberInvoice), "Type the Uber invoice number");
+      if (uberInvoice) v.check(!all.some((l) => l.invoice_no === uberInvoice && l.status !== "Void"), `Uber invoice ${uberInvoice} is already saved`);
+    }
     if (!bill && open && table_no) {
       const busy = groupBills(all).find((b) => b.status === "Open" && b.table_no === table_no);
       v.check(!busy, `${table_no} already has an open bill – add the items to that bill instead`);
@@ -104,6 +114,7 @@ export async function saveOrder(input: OrderInput): Promise<ActionResult> {
     // The meal is not chosen on screen: it is logged from the time, for reports.
     const meal = bill ? bill.lines[0]?.meal ?? mealForTime(time) : mealForTime(time);
     const firstNo = bill ? nextLineNo(all, order_id) : 1;
+    const invoice_no = bill ? bill.invoice_no : uber ? uberInvoice : nextInvoiceNo(date, all);
     const rows: OrderLine[] = input.lines.map((l, i) => {
       const m = menu.find((x) => x.item_id === l.item_id);
       if (!m) throw new ValidationError([`Unknown menu item ${l.item_id}`]);
@@ -117,13 +128,13 @@ export async function saveOrder(input: OrderInput): Promise<ActionResult> {
         unit_price: price, line_total: l.qty * price,
         unit_cost: m.unit_cost, line_cost: l.qty * m.unit_cost,
         payment_method: payment_method as OrderLine["payment_method"], notes: (input.notes ?? "").trim(), entered_by: user.email,
-        order_type: order_type as OrderLine["order_type"], table_no, status: open ? "Open" : "Paid", void_by: "", void_reason: "",
+        order_type: order_type as OrderLine["order_type"], table_no, status: open ? "Open" : "Paid", void_by: "", void_reason: "", invoice_no,
       };
     });
     await repo.insert("orders", rows);
     const total = rows.reduce((t, r) => t + r.line_total, 0);
     const fmt = (n: number) => `Rs ${n.toLocaleString("en-US")}`;
-    const where = order_type === "Dine-in" ? table_no : order_type.toLowerCase();
+    const where = order_type === "Dine-in" ? table_no : order_type === "Uber" ? "Uber" : "take-away";
     if (open) {
       // Kitchen ticket with just these items.
       const receipt = receiptFor(rows, menu, { status: "Open" });
@@ -134,39 +145,59 @@ export async function saveOrder(input: OrderInput): Promise<ActionResult> {
     // Everything needed to print the receipt straight away, without reading the order back.
     const receipt = receiptFor(rows, menu);
     if (uber) {
-      const commission = uberCommission(total, settings);
-      const cost: DailyCost = {
-        cost_id: uberCostId(order_id),
-        date,
-        category: UBER_COST_CATEGORY,
-        description: `Uber commission · ${meal} · ${order_id}`,
-        amount: commission,
-        paid_from: "Bank",
-        paid_by: "Business",
-        notes: `Auto: ${settings.uber_commission_pct}% of ${fmt(total)}`,
-        entered_by: user.email,
-      };
-      if (commission > 0) await repo.insert("dailyCosts", [cost]);
+      const commission = await recordUberCommission(order_id, date, meal, total, invoice_no, user.email);
       return { message: `Uber order saved · ${fmt(total)} · commission ${fmt(commission)} recorded`, id: order_id, receipt, ticket: "receipt" };
     }
-    return { message: `Order saved · ${fmt(total)}`, id: order_id, receipt, ticket: "receipt" };
+    return { message: `Order saved · ${invoice_no} · ${fmt(total)}`, id: order_id, receipt, ticket: "receipt" };
   });
 }
 
-/** Take payment for an open bill: all its lines become Paid (and count in sales and cash from now). */
-export async function payBill(order_id: string, payment_method: string): Promise<ActionResult> {
+/** Uber keeps a % of every completed Uber order: saved as a daily cost (Bank, Business), linked to the order. */
+async function recordUberCommission(order_id: string, date: string, meal: string, total: number, invoice_no: string, by: string): Promise<number> {
+  const settings = await repo.settings();
+  const commission = uberCommission(total, settings);
+  const cost_id = uberCostId(order_id);
+  if (commission <= 0 || (await repo.dailyCosts()).some((c) => c.cost_id === cost_id)) return commission;
+  const cost: DailyCost = {
+    cost_id, date, category: UBER_COST_CATEGORY,
+    description: `Uber commission · ${meal} · ${invoice_no || order_id}`,
+    amount: commission, paid_from: "Bank", paid_by: "Business",
+    notes: `Auto: ${settings.uber_commission_pct}% of Rs ${total.toLocaleString("en-US")}`,
+    entered_by: by,
+  };
+  await repo.insert("dailyCosts", [cost]);
+  return commission;
+}
+
+/**
+ * Take payment for an open bill: all its lines become Paid (and count in sales and cash from now).
+ * Uber bills are "completed" instead: payment is Uber, the Uber invoice number is required, and the commission is recorded.
+ */
+export async function payBill(order_id: string, payment_method: string, invoice_no?: string): Promise<ActionResult> {
   return run(async () => {
-    await requireAction("any");
-    const v = new V();
-    const method = v.oneOf("Payment method", payment_method, PAYMENT_METHODS);
-    v.done();
-    const lines = (await repo.orderLines()).filter((l) => l.order_id === order_id);
-    const bill = groupBills(lines)[0];
+    const user = await requireAction("any");
+    const all = await repo.orderLines();
+    const bill = groupBills(all.filter((l) => l.order_id === order_id))[0];
     if (!bill || bill.status !== "Open") throw new Error("This bill is not open (already paid or voided).");
-    for (const l of bill.lines) await repo.update("orders", l.line_id, { status: "Paid", payment_method: method });
+    const uber = bill.order_type === "Uber";
+    const v = new V();
+    const method = uber ? "Uber" : v.oneOf("Payment method", payment_method, PAYMENT_METHODS);
+    const inv = uber ? (invoice_no ?? bill.invoice_no).trim() : bill.invoice_no;
+    if (uber) {
+      v.check(Boolean(inv), "Type the Uber invoice number");
+      v.check(inv.length <= 40, "Uber invoice number is too long");
+      v.check(!all.some((l) => l.order_id !== order_id && l.invoice_no === inv && l.status !== "Void"), `Uber invoice ${inv} is already saved`);
+    }
+    v.done();
+    for (const l of bill.lines) await repo.update("orders", l.line_id, { status: "Paid", payment_method: method, invoice_no: inv });
     const menu = await repo.menu();
-    const paid = bill.lines.map((l) => ({ ...l, status: "Paid" as const, payment_method: method }));
-    return { message: `Paid · Rs ${bill.total.toLocaleString("en-US")} · ${method}`, id: order_id, receipt: receiptFor(paid, menu), ticket: "receipt" };
+    const paid = bill.lines.map((l) => ({ ...l, status: "Paid" as const, payment_method: method as OrderLine["payment_method"], invoice_no: inv }));
+    const fmt = (n: number) => `Rs ${n.toLocaleString("en-US")}`;
+    if (uber) {
+      const commission = await recordUberCommission(order_id, bill.date, bill.lines[0]?.meal ?? "", bill.total, inv, user.email);
+      return { message: `Uber order completed · ${inv} · commission ${fmt(commission)} recorded`, id: order_id, receipt: receiptFor(paid, menu), ticket: "receipt" };
+    }
+    return { message: `Paid · ${fmt(bill.total)} · ${method}`, id: order_id, receipt: receiptFor(paid, menu), ticket: "receipt" };
   });
 }
 
