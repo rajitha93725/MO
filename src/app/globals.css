@@ -207,6 +207,10 @@ tr:last-child td { border-bottom: none; }
 @media (min-width: 900px) { .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .tile { position: relative; flex-direction: column; align-items: flex-start; min-height: 68px; text-align: left; font-weight: 600; }
 .tile .price { font-weight: 500; font-size: 0.8rem; color: var(--text-2); }
+.tile .tile-name { line-height: 1.25; }
+/* menu group (e.g. SweetMO): small and faded, so the item name reads first */
+.tile-group { display: block; font-size: 0.7rem; font-weight: 500; color: var(--muted); letter-spacing: 0.2px; margin-top: 1px; }
+.cart-head { position: sticky; top: 0; background: var(--surface); padding-bottom: 4px; z-index: 1; }
 .tile .count { position: absolute; top: 6px; right: 6px; min-width: 26px; height: 26px; border-radius: 13px; background: var(--brand); color: var(--brand-ink); display: grid; place-items: center; font-size: 0.8rem; }
 .tile.picked { border-color: var(--brand); background: var(--brand-soft); }
 .chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
@@ -297,7 +301,7 @@ table.cal td.cal-booked a { display: flex; align-items: center; justify-content:
 
 /* ---------- Public menu card (/menu) ---------- */
 .mcard {
-  --m-red: #d7141a;
+  --m-red: #d82700;
   --m-ink: #1b1512;
   --m-ink-2: #5b524b;
   --m-paper: rgba(255, 250, 242, 0.95);

@@ -53,6 +53,11 @@ export function receiptHtml(o: ReceiptOrder, s: ReceiptSettings): string {
   ].join("");
 }
 
+/** Name on the receipt: the menu sub-category in front ("SweetMO · Mo special Crepes"), unless it repeats the name. */
+export function receiptItemName(itemName: string, subCategory?: string): string {
+  return subCategory && subCategory !== itemName ? `${subCategory} · ${itemName}` : itemName;
+}
+
 /** @page rule for the receipt paper width. */
 export function receiptPageCss(widthMm: number): string {
   return `@page { size: ${widthMm}mm auto; margin: 3mm; }`;

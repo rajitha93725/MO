@@ -12,7 +12,8 @@ import {
   isVillaTodo, type DailyCost, type FixedCost, type FixedPayment, type MenuItem, type OrderLine, type TargetPeriod, type Todo, type VillaRecord,
 } from "@/lib/types";
 import { commissionFor, findOverlaps, netPayoutFor, nightsBetween } from "@/lib/calc/villa";
-import type { ReceiptOrder } from "@/lib/receipt";
+import { receiptItemName, type ReceiptOrder } from "@/lib/receipt";
+import { mealForTime } from "@/lib/calc/meal";
 import { buildUsers, type UserForm } from "@/lib/users";
 import { capitalAccountAllowed } from "@/lib/calc/capital";
 import { hashPassword } from "@/lib/password";
@@ -41,7 +42,8 @@ async function run(
 export interface OrderInput {
   /** "Uber" = Uber order: Uber prices, paid to Bank, commission saved as a daily cost. Default "Cafe". */
   channel?: OrderChannel;
-  meal: string;
+  /** Ignored: the meal is logged from the order time (calc/meal.ts). Kept for old callers. */
+  meal?: string;
   payment_method: string;
   notes?: string;
   date?: string;
@@ -53,7 +55,6 @@ export async function saveOrder(input: OrderInput): Promise<ActionResult> {
     const user = await requireAction("any");
     const settings = await repo.settings();
     const v = new V();
-    const meal = v.oneOf("Meal", input.meal, MEALS);
     const uber = input.channel === "Uber";
     const payment_method = uber ? "Uber" : v.oneOf("Payment method", input.payment_method, PAYMENT_METHODS);
     const date = v.date("Date", input.date || today(settings));
@@ -64,6 +65,8 @@ export async function saveOrder(input: OrderInput): Promise<ActionResult> {
     const menu = await repo.menu();
     const order_id = newId("ORD");
     const time = nowTime(settings);
+    // The meal is not chosen on screen: it is logged from the time, for reports.
+    const meal = mealForTime(time);
     const rows: OrderLine[] = input.lines.map((l, i) => {
       const m = menu.find((x) => x.item_id === l.item_id);
       if (!m) throw new ValidationError([`Unknown menu item ${l.item_id}`]);
@@ -85,7 +88,10 @@ export async function saveOrder(input: OrderInput): Promise<ActionResult> {
     // Everything needed to print the receipt straight away, without reading the order back.
     const receipt: ReceiptOrder = {
       order_id, date, time, meal, payment_method, notes: rows[0].notes,
-      lines: rows.map((r) => ({ item_name: r.item_name, qty: r.qty, unit_price: r.unit_price, line_total: r.line_total })),
+      lines: rows.map((r) => ({
+        item_name: receiptItemName(r.item_name, menu.find((m) => m.item_id === r.item_id)?.sub_category),
+        qty: r.qty, unit_price: r.unit_price, line_total: r.line_total,
+      })),
     };
     if (uber) {
       const commission = uberCommission(total, settings);

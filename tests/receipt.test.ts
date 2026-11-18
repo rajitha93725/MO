@@ -31,3 +31,12 @@ describe("receipt", () => {
     expect(receiptPageCss(58)).toBe("@page { size: 58mm auto; margin: 3mm; }");
   });
 });
+
+describe("receipt item names", () => {
+  it("puts the menu group in front, unless it repeats the name", async () => {
+    const { receiptItemName } = await import("../src/lib/receipt");
+    expect(receiptItemName("Mo special Crepes", "SweetMO")).toBe("SweetMO · Mo special Crepes");
+    expect(receiptItemName("Kottu", "Kottu")).toBe("Kottu");
+    expect(receiptItemName("Latte", "")).toBe("Latte");
+  });
+});

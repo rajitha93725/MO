@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requirePage } from "@/lib/auth";
 import { repo } from "@/lib/data/repo";
-import { receiptHtml, receiptPageCss, type ReceiptOrder } from "@/lib/receipt";
+import { receiptHtml, receiptItemName, receiptPageCss, type ReceiptOrder } from "@/lib/receipt";
 import { StorageError } from "@/components/StorageError";
 import { AutoPrint, PrintReceiptButton } from "./ReceiptActions";
 
@@ -9,9 +9,9 @@ export default async function ReceiptPage({ params, searchParams }: { params: Pr
   await requirePage("any");
   const { id } = await params;
   const { print } = await searchParams;
-  let orders, settings;
+  let orders, settings, menu;
   try {
-    [orders, settings] = await Promise.all([repo.orders(), repo.settings()]);
+    [orders, settings, menu] = await Promise.all([repo.orders(), repo.settings(), repo.menu()]);
   } catch (e) {
     return <StorageError error={e} />;
   }
@@ -38,7 +38,10 @@ export default async function ReceiptPage({ params, searchParams }: { params: Pr
   const order: ReceiptOrder = {
     order_id: o.order_id, date: o.date, time: o.time, meal: o.meal, payment_method: o.payment_method,
     notes: lines.find((l) => l.notes)?.notes ?? "",
-    lines: lines.map((l) => ({ item_name: l.item_name, qty: l.qty, unit_price: l.unit_price, line_total: l.line_total })),
+    lines: lines.map((l) => ({
+      item_name: receiptItemName(l.item_name, menu.find((m) => m.item_id === l.item_id)?.sub_category),
+      qty: l.qty, unit_price: l.unit_price, line_total: l.line_total,
+    })),
   };
   const width = settings.receipt_width_mm;
 

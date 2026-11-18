@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { saveOrder } from "@/app/actions";
 import { useAction } from "@/components/ui";
-import { MEALS, PAYMENT_METHODS, type Meal, type MenuItem, type OrderChannel, type PaymentMethod } from "@/lib/types";
+import { PAYMENT_METHODS, type Meal, type MenuItem, type OrderChannel, type PaymentMethod } from "@/lib/types";
 import { uberCommission, uberPrice } from "@/lib/calc/uber";
 import { printReceipt } from "@/components/printReceipt";
 import type { ReceiptOrder, ReceiptSettings } from "@/lib/receipt";
@@ -28,7 +28,6 @@ export function OrderEntry({
     () => [...settingCats.filter((c) => menu.some((m) => m.category === c)), ...Array.from(new Set(menu.map((m) => m.category))).filter((c) => !settingCats.includes(c))],
     [menu, settingCats],
   );
-  const [meal, setMeal] = useState<Meal>(defaultMeal);
   const [channel, setChannel] = useState<OrderChannel>(defaultChannel);
   const isUber = channel === "Uber";
   // Price shown and charged for an item in the current channel.
@@ -68,11 +67,12 @@ export function OrderEntry({
 
   const add = (id: string, d: number) => setCart((c) => ({ ...c, [id]: Math.max(0, (c[id] ?? 0) + d) }));
   const setQty = (id: string, q: number) => setCart((c) => ({ ...c, [id]: Number.isFinite(q) && q > 0 ? Math.floor(q) : 0 }));
-  const label = (m: MenuItem) => (m.item_name === m.sub_category || !m.sub_category ? m.item_name : `${m.sub_category} · ${m.item_name}`);
+  // Small grey menu group under the name (e.g. "SweetMO"), so names stay quick to read. The receipt keeps "SweetMO · name".
+  const group = (m: MenuItem) => (m.sub_category && m.sub_category !== m.item_name ? m.sub_category : "");
 
   const submit = () =>
     call(
-      () => saveOrder({ channel, meal, payment_method: isUber ? "Uber" : pay, notes, date, lines: lines.map((l) => ({ item_id: l.item.item_id, qty: l.qty })) }),
+      () => saveOrder({ channel, payment_method: isUber ? "Uber" : pay, notes, date, lines: lines.map((l) => ({ item_id: l.item.item_id, qty: l.qty })) }),
       (r) => {
         setCart({});
         setNotes("");
@@ -102,14 +102,6 @@ export function OrderEntry({
         </div>
       )}
 
-      <div className="seg" role="group" aria-label="Meal">
-        {MEALS.map((m) => (
-          <button key={m} type="button" className={meal === m ? "on" : ""} aria-pressed={meal === m} onClick={() => setMeal(m)}>
-            {m}
-          </button>
-        ))}
-      </div>
-
       <input type="search" placeholder="Search menu…" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search menu" />
 
       {!query && (
@@ -133,7 +125,8 @@ export function OrderEntry({
       <div className="tiles">
         {shown.map((m) => (
           <button key={m.item_id} type="button" className={`tile ${cart[m.item_id] ? "picked" : ""}`} onClick={() => add(m.item_id, 1)}>
-            {label(m)}
+            <span className="tile-name">{m.item_name}</span>
+            {group(m) && <span className="tile-group">{group(m)}</span>}
             <span className="price">{rs(priceOf(m))}</span>
             {cart[m.item_id] > 0 && <span className="count">{cart[m.item_id]}</span>}
           </button>
@@ -154,9 +147,16 @@ export function OrderEntry({
         <div className="inner stack">
           {showCart && (
             <div className="stack" style={{ maxHeight: "45vh", overflowY: "auto" }}>
+              <div className="spread cart-head">
+                <b>Review order</b>
+                <button type="button" className="small" onClick={() => setShowCart(false)} aria-label="Hide the order review to add more items">▾ Hide · add more items</button>
+              </div>
               {lines.map((l) => (
                 <div key={l.item.item_id} className="spread">
-                  <span style={{ flex: 1 }}>{label(l.item)}</span>
+                  <span style={{ flex: 1 }}>
+                    {l.item.item_name}
+                    {group(l.item) && <span className="tile-group">{group(l.item)}</span>}
+                  </span>
                   <span className="qty">
                     <button type="button" onClick={() => add(l.item.item_id, -1)} aria-label="Less">−</button>
                     <input type="number" inputMode="numeric" min={1} value={l.qty} onChange={(e) => setQty(l.item.item_id, Number(e.target.value))} aria-label={`Quantity ${l.item.item_name}`} />

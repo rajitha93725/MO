@@ -4,7 +4,7 @@ Mobile-first Next.js app for the daily operations of MO Cafe & Villa: orders, co
 Currency is LKR (whole rupees). The data lives in Supabase (Postgres), one table per entity.
 The public menu card is at **/menu** (no sign-in); everything else needs sign-in.
 
-- **Brand:** the "MO · Stay · Eatery" logo (white letters, black outline) on red `#D7141A`. Original: `logo/MO logo, option 3@2x.png`; app copies: `public/logo.png` (header/login), `src/app/icon.png` (browser tab) and `src/app/apple-icon.png` (phone home screen).
+- **Brand:** the "MO" logo (white letters, black outline) on red `#D82700`. Original: `logo/Logo-with-background.png`; app copies: `public/logo.png` (header/login), `src/app/icon.png` (browser tab) and `src/app/apple-icon.png` (phone home screen).
 - **Stack:** Next.js 15 (App Router, server actions), NextAuth (Google sign-in or username + password), Supabase REST API with the secret key, Recharts, Vitest.
 
 ---
@@ -103,7 +103,7 @@ Written automatically whenever a partner changes an item's cost or price.
 |---|---|
 | order_id | Shared by all lines of one order |
 | date, time | When saved (cafe timezone) |
-| meal | Breakfast / Lunch / Dinner |
+| meal | Breakfast / Lunch / Dinner, logged automatically from the order time (not chosen on screen): Breakfast 00:01–11:30, Lunch 11:31–16:59, Dinner 17:00–00:00. For the meal counts in reports |
 | item_id, item_name | Snapshot from the menu |
 | qty | Whole number > 0 |
 | unit_price, unit_cost | **Snapshot** of the menu price and cost at save time, so later menu changes don't alter history |
@@ -141,7 +141,7 @@ Types: Opening balance, Top-up, Withdrawal (these use `account`), and Transfer p
 | food_cost_target_pct | 40 | menu highlight and dashboard |
 | partners | Rajitha:50,Janith:50 | cafe profit split (must total 100) |
 | villa_partners | Rajitha:100 | villa profit split (must total 100) |
-| menu_categories | Brunch:B,All Day Menu:A,Beverage:D | menu categories in display order, with the letter for new item IDs. Breakfast orders open the first one, other meals the second |
+| menu_categories | Brunch:B,All Day Menu:A,Beverage:D | menu categories in display order, with the letter for new item IDs. Before 11:31 the order screen opens the first one, later the second |
 | receipt_name | MO Cafe | receipt: name at the top |
 | receipt_address | (empty) | receipt: optional address / phone line |
 | receipt_footer | Thank you! Come again | receipt: last line |
@@ -304,7 +304,7 @@ All figures come from the same calculations as the other pages (`src/lib/calc/re
 After **Save** on the New order screen, the receipt prints straight from that screen. The print dialog opens, the app stays on New order, and the cart is already empty for the next order. The receipt uses the data from the save itself, so it never has to wait for the database. **🖨 Print again** reprints the last order. The **Print receipt after saving** checkbox in the cart turns this on or off, and each phone or tablet remembers its own choice.
 
 - Reprint any order from **Sales** with the 🖨 button next to it. Receipts always read the latest data.
-- The receipt shows the date, time, meal, order number, each item (qty × price), total, payment method, item count and the order note.
+- The receipt shows the date, time, meal, order number, each item with its menu group in front (e.g. "SweetMO · Mo special Crepes", qty × price), total, payment method, item count and the order note.
 - Header, footer and paper width come from Settings (`receipt_name`, `receipt_address`, `receipt_footer`, `receipt_width_mm`).
 - Browsers always show the print dialog (a web page can't print silently). For one-tap printing on a counter PC, start Chrome with `--kiosk-printing` and set the receipt printer as the default.
 - Printing uses the device's normal print dialog, so it works with any printer the phone, tablet or computer can print to: a Bluetooth or USB receipt printer (pick it in the dialog), a Wi-Fi printer, or "Save as PDF".

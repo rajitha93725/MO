@@ -1,6 +1,7 @@
 import { requirePage } from "@/lib/auth";
 import { repo } from "@/lib/data/repo";
-import { today } from "@/lib/today";
+import { nowTime, today } from "@/lib/today";
+import { mealForTime } from "@/lib/calc/meal";
 import { StorageError } from "@/components/StorageError";
 import { OrderEntry } from "./OrderEntry";
 
@@ -10,9 +11,8 @@ export default async function OrderPage({ searchParams }: { searchParams: Promis
   try {
     const [menu, settings] = await Promise.all([repo.menu(), repo.settings()]);
     const t = today(settings);
-    // Suggest the meal from the clock in the cafe's timezone.
-    const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: settings.timezone, hour: "2-digit", hour12: false }).format(new Date()));
-    const meal = hour < 11 ? "Breakfast" : hour < 17 ? "Lunch" : "Dinner";
+    // The meal is logged from the time (same rule as when saving); it only picks the first menu tab here.
+    const meal = mealForTime(nowTime(settings));
     const categories = settings.menu_categories.map((c) => c.name);
     const uber = { uber_markup_pct: settings.uber_markup_pct, uber_commission_pct: settings.uber_commission_pct };
     return (
