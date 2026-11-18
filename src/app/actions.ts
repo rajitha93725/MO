@@ -603,7 +603,7 @@ export async function saveSettings(values: Record<string, string>): Promise<Acti
     const partners = parsePartners(values.partners ?? "");
     const total = partners.reduce((t, p) => t + p.pct, 0);
     v.check(partners.length > 0 && Math.abs(total - 100) < 0.001, `Partner split must total 100% (now ${total}%)`);
-    for (const k of ["food_cost_target_pct", "petty_low_threshold", "one_time_spread_months", "todo_amber_days"]) v.amount(k, values[k]);
+    for (const k of ["food_cost_target_pct", "food_cost_good_pct", "petty_low_threshold", "one_time_spread_months", "todo_amber_days"]) v.amount(k, values[k]);
     v.check((values.closed_months ?? "").split(",").filter(Boolean).every((m) => Number(m) >= 1 && Number(m) <= 12), "Closed months must be numbers 1-12");
     v.done();
     const current = await repo.settingRows();

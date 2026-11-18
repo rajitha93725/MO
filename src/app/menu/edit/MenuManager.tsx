@@ -8,14 +8,14 @@ import { HEADERS } from "@/lib/data/schema";
 import type { MenuItem, PriceHistory } from "@/lib/types";
 
 const n = (v: number) => Math.round(v).toLocaleString("en-US");
-export function MenuManager({ menu, history, target, isPartner, categories }: { menu: MenuItem[]; history: PriceHistory[]; target: number; isPartner: boolean; categories: string[] }) {
+export function MenuManager({ menu, history, target, good, isPartner, categories }: { menu: MenuItem[]; history: PriceHistory[]; target: number; good: number; isPartner: boolean; categories: string[] }) {
   // Settings order first, then any category used in the menu but not listed in Settings.
   const CATS = [...categories, ...Array.from(new Set(menu.map((m) => m.category))).filter((c) => !categories.includes(c))];
   const [editing, setEditing] = useState<MenuItem | "new" | null>(null);
   const [showInactive, setShowInactive] = useState(false);
   const [onlyHigh, setOnlyHigh] = useState(false);
   const { pending, call, ui } = useAction();
-  const settings = { food_cost_target_pct: target };
+  const settings = { food_cost_target_pct: target, food_cost_good_pct: good };
 
   const items = menu.filter((m) => (showInactive || m.active) && (!onlyHigh || menuStats(m, settings).aboveTarget));
   const highCount = menu.filter((m) => m.active && menuStats(m, settings).aboveTarget).length;
@@ -33,7 +33,7 @@ export function MenuManager({ menu, history, target, isPartner, categories }: { 
       <div className="row small">
         <label className="row"><input type="checkbox" checked={onlyHigh} onChange={(e) => setOnlyHigh(e.target.checked)} /> Only above target ({highCount})</label>
         <label className="row"><input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} /> Show inactive</label>
-        <span className="muted">Food cost target: {target}% <Tip text={`Food cost % = unit_cost ÷ selling_price. Red = above the target (Settings: food_cost_target_pct = ${target}%). Profit = selling_price − unit_cost.`} /></span>
+        <span className="muted">Food cost: green ≤ {good}% · red &gt; {target}% <Tip text={`Food cost % = unit_cost ÷ selling_price. Green = ${good}% or less (Settings: food_cost_good_pct). Red = above ${target}% (Settings: food_cost_target_pct). In between: no colour. Profit = selling_price − unit_cost.`} /></span>
       </div>
       {ui}
 
@@ -82,7 +82,7 @@ export function MenuManager({ menu, history, target, isPartner, categories }: { 
                     const st = menuStats(m, settings);
                     const hist = history.filter((h) => h.item_id === m.item_id);
                     return (
-                      <div key={m.item_id} className={`menu-card ${st.aboveTarget ? "high" : st.foodCostPct !== null && m.unit_cost > 0 ? "ok" : ""} ${m.active ? "" : "inactive"}`}>
+                      <div key={m.item_id} className={`menu-card ${st.aboveTarget ? "high" : st.good ? "ok" : ""} ${m.active ? "" : "inactive"}`}>
                         <div style={{ minWidth: 0 }}>
                           <div className="name">{m.item_name} {!m.active && <span className="badge">inactive</span>}</div>
                           {m.description && <div className="small" style={{ color: "var(--text-2)" }}>{m.description}</div>}

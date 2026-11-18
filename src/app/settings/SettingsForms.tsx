@@ -10,7 +10,8 @@ import { LOCAL_EMAIL_DOMAIN, type PublicUser, type UserForm } from "@/lib/users"
 const LABELS: Record<string, string> = {
   opening_month: "Opening month",
   closed_months: "Closed months",
-  food_cost_target_pct: "Food cost target %",
+  food_cost_target_pct: "Food cost limit % (red above)",
+  food_cost_good_pct: "Good food cost % (green at or below)",
   partners: "Partner split",
   petty_low_threshold: "Petty-cash low threshold (Rs)",
   one_time_allocation: "One-time cost allocation",
@@ -51,7 +52,7 @@ function Input({ r }: { r: SettingRow }) {
     );
   if (["cost_categories", "food_check_categories", "villa_rooms", "villa_platforms", "villa_cost_categories"].includes(r.key))
     return <textarea name={r.key} rows={3} defaultValue={r.value} />;
-  const numeric = ["food_cost_target_pct", "petty_low_threshold", "one_time_spread_months", "todo_amber_days"].includes(r.key);
+  const numeric = ["food_cost_target_pct", "food_cost_good_pct", "petty_low_threshold", "one_time_spread_months", "todo_amber_days"].includes(r.key);
   return <input name={r.key} defaultValue={r.value} inputMode={numeric ? "numeric" : undefined} />;
 }
 

@@ -305,6 +305,8 @@ export interface Settings {
   opening_month: MonthKey;
   closed_months: number[]; // 1-12
   food_cost_target_pct: number;
+  /** Food cost % at or below which a menu item is shown green. */
+  food_cost_good_pct: number;
   partners: Partner[];
   petty_low_threshold: number;
   one_time_allocation: OneTimeAllocation;

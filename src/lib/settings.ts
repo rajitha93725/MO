@@ -8,7 +8,8 @@ import type { DiningArea, MenuCategory, Partner, Settings, SettingRow, TargetPer
 export const DEFAULT_SETTING_ROWS: SettingRow[] = [
   { key: "opening_month", value: "2026-12", description: "First trading month (YYYY-MM)" },
   { key: "closed_months", value: "6,7,8,9,10", description: "Month numbers the cafe is closed (1=Jan … 12=Dec)" },
-  { key: "food_cost_target_pct", value: "33", description: "Food cost % target: menu items at or below it are green, above it red" },
+  { key: "food_cost_target_pct", value: "40", description: "Food cost % limit: menu items above it are red" },
+  { key: "food_cost_good_pct", value: "33", description: "Good food cost %: menu items at or below it are green (between this and the limit: no colour)" },
   { key: "partners", value: "Rajitha:50,Janith:50", description: "Profit split, Name:percent, comma separated (must total 100)" },
   { key: "petty_low_threshold", value: "20000", description: "Warn when petty cash falls below this (Rs)" },
   { key: "one_time_allocation", value: "full", description: "One-time fixed costs: full = all in month paid, spread = over N open months" },
@@ -191,6 +192,7 @@ export function parseSettings(rows: SettingRow[], targets: TargetPeriod[]): Sett
     opening_month: g("opening_month"),
     closed_months: list(g("closed_months")).map((m) => toNum(m, "closed_months")),
     food_cost_target_pct: toNum(g("food_cost_target_pct"), "food_cost_target_pct"),
+    food_cost_good_pct: toNum(g("food_cost_good_pct") || "33", "food_cost_good_pct"),
     partners,
     petty_low_threshold: toNum(g("petty_low_threshold"), "petty_low_threshold"),
     one_time_allocation: alloc,

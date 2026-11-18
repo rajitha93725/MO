@@ -25,9 +25,12 @@ describe("daily view", () => {
 
 describe("menu food cost %", () => {
   it("flags items above the Settings target", () => {
-    expect(menuStats({ unit_cost: 450, selling_price: 1100 }, settings()).aboveTarget).toBe(true); // 40.9% > 33% default
-    expect(menuStats({ unit_cost: 330, selling_price: 1000 }, settings()).aboveTarget).toBe(false); // exactly 33% = green
-    expect(menuStats({ unit_cost: 331, selling_price: 1000 }, settings()).aboveTarget).toBe(true); // 33.1% = red
+    const st = (c: number) => menuStats({ unit_cost: c, selling_price: 1000 }, settings());
+    expect([st(330).good, st(330).aboveTarget]).toEqual([true, false]); // 33% = green
+    expect([st(350).good, st(350).aboveTarget]).toEqual([false, false]); // 35% = no colour
+    expect([st(400).good, st(400).aboveTarget]).toEqual([false, false]); // exactly 40% = no colour
+    expect([st(401).good, st(401).aboveTarget]).toEqual([false, true]); // 40.1% = red
+    expect(menuStats({ unit_cost: 0, selling_price: 1000 }, settings()).good).toBe(false); // no cost yet = no colour
     expect(menuStats({ unit_cost: 450, selling_price: 1100 }, settings({ food_cost_target_pct: "45" })).aboveTarget).toBe(false);
   });
 });

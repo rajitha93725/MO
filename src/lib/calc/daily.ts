@@ -63,14 +63,17 @@ export interface MenuStats {
   profit: number;
   foodCostPct: number | null;
   aboveTarget: boolean;
+  /** At or below the good food cost % (green). */
+  good: boolean;
 }
 
-export function menuStats(item: Pick<MenuItem, "unit_cost" | "selling_price">, settings: Pick<Settings, "food_cost_target_pct">): MenuStats {
+export function menuStats(item: Pick<MenuItem, "unit_cost" | "selling_price">, settings: Pick<Settings, "food_cost_target_pct"> & Partial<Pick<Settings, "food_cost_good_pct">>): MenuStats {
   const r = ratio(item.unit_cost, item.selling_price);
   return {
     profit: item.selling_price - item.unit_cost,
     foodCostPct: r,
     aboveTarget: r !== null && r * 100 > settings.food_cost_target_pct,
+    good: r !== null && item.unit_cost > 0 && r * 100 <= (settings.food_cost_good_pct ?? 33),
   };
 }
 
