@@ -37,8 +37,10 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     return { ...s, uberSales: u.sales, uberCommission: u.commission, expectedNet: s.grossProfit - u.commission };
   };
   const day = dayFigures(t);
-  const petty = accountBalance("Petty cash", { orders, dailyCosts, fixedCosts, fixedPayments, movements, villa, capital });
-  const bank = accountBalance("Bank", { orders, dailyCosts, fixedCosts, fixedPayments, movements, villa, capital });
+  const cashIn = { orders, dailyCosts, fixedCosts, fixedPayments, movements, villa, capital };
+  const petty = accountBalance("Petty cash", cashIn);
+  const villaPetty = accountBalance("Villa petty cash", cashIn);
+  const bank = accountBalance("Bank", cashIn);
   const low = isPettyLow(petty.balance, settings);
   const mp = monthProfit(month, input);
   const vm = villaMonth(month, villa, settings);
@@ -86,28 +88,23 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       {isOwner && (
         <>
           <h2 className="home-section">📊 MO total · {monthLabel(month)}</h2>
-          <div className="grid cols-3">
+          <div className="grid cols-2">
             <div className="card stat">
               <div className="label">Total profit · {monthLabel(month)} <Tip text={COMBINED_FORMULA} /></div>
               <div className={`value ${combined.total < 0 ? "neg" : ""}`}>{rs(combined.total)}</div>
               <div className="sub">Cafe {rs(combined.cafe)} + Villa {rs(combined.villa)}</div>
             </div>
-          <div className={`card stat ${low ? "warn" : ""}`}>
-            <div className="label">Petty cash <Tip text={CASH_FORMULAS.petty} /></div>
-            <div className="value">{rs(petty.balance)}</div>
-            <div className="sub">{low ? <b className="neg">⚠ Low – below {rs(settings.petty_low_threshold)}</b> : `Warn below ${rs(settings.petty_low_threshold)}`}</div>
-          </div>
           <div className="card stat">
-            <div className="label">Bank <Tip text={CASH_FORMULAS.bank} /></div>
+            <div className="label">Bank (shared) <Tip text={CASH_FORMULAS.bank} /></div>
             <div className="value">{rs(bank.balance)}</div>
-            <div className="sub">All time</div>
+            <div className="sub">All time · <Link href="/cash">Cash &amp; bank →</Link></div>
           </div>
           </div>
         </>
       )}
 
       <h2 className="home-section" id="cafe">☕ MO Cafe</h2>
-      <div className="grid cols-4">
+      <div className={`grid ${isPartner ? "cols-5" : "cols-4"}`}>
         <div className="card stat">
           <div className="label">Today&apos;s sales <Tip text={FORMULAS.sales.replace("month", "day")} /></div>
           <div className="value">{rs(day.sales)}</div>
@@ -145,6 +142,13 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                 {mp.closed ? "Closed month" : mp.plannedNetProfit ? (
                   <span className={mp.profitVsPlan >= 0 ? "pos" : "neg"}>{mp.profitVsPlan >= 0 ? "▲" : "▼"} {rs(Math.abs(mp.profitVsPlan))} vs plan {rs(mp.plannedNetProfit)}</span>
                 ) : "No plan for this month"}
+              </div>
+            </div>
+            <div className={`card stat ${low ? "warn" : ""}`}>
+              <div className="label">Cafe petty cash <Tip text={CASH_FORMULAS.petty} /></div>
+              <div className={`value ${petty.balance < 0 ? "neg" : ""}`}>{rs(petty.balance)}</div>
+              <div className="sub">
+                {low ? <b className="neg">⚠ Low – below {rs(settings.petty_low_threshold)}</b> : `Warn below ${rs(settings.petty_low_threshold)}`} · <Link href="/cash">details</Link>
               </div>
             </div>
           </>
@@ -222,7 +226,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       {isOwner && (
         <>
           <h2 className="home-section">🏡 MO Villa</h2>
-          <div className="grid cols-4">
+          <div className="grid cols-5">
           <div className="card stat">
             <div className="label">Villa net profit · {monthLabel(month)} <Tip text={VILLA_FORMULAS.netProfit} /></div>
             <div className={`value ${vm.netProfit < 0 ? "neg" : ""}`}>{rs(vm.netProfit)}</div>
@@ -247,6 +251,11 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
             <div className="label">Pending payouts <Tip text={VILLA_FORMULAS.payouts} /></div>
             <div className="value">{rs(pending.reduce((a, b) => a + b.net_payout, 0))}</div>
             <div className="sub">{pending.length} booking{pending.length === 1 ? "" : "s"} · <Link href="/villa?view=bookings">view</Link></div>
+          </div>
+          <div className="card stat">
+            <div className="label">Villa petty cash <Tip text={CASH_FORMULAS.villaPetty} /></div>
+            <div className={`value ${villaPetty.balance < 0 ? "neg" : ""}`}>{rs(villaPetty.balance)}</div>
+            <div className="sub">All time · <Link href="/cash">details</Link></div>
           </div>
           </div>
         </>

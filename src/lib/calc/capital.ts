@@ -1,4 +1,4 @@
-import type { CapitalContribution, Partner } from "../types";
+import type { CapitalBusiness, CapitalContribution, CapitalPaidInto, Partner } from "../types";
 import { CAPITAL_BUSINESSES } from "../types";
 import { ratio, sum } from "./money";
 
@@ -6,13 +6,24 @@ export const CAPITAL_FORMULAS = {
   share: "Capital share = partner's contributions ÷ all contributions",
   trackOnly:
     "Capital is tracked only. It does not change the profit split (Settings: partners), which reflects money plus work (cooking & management).",
-  cash: "Contributions paid into Bank or Petty cash raise that balance. 'Paid directly' (e.g. straight to a supplier) is recorded but does not touch the business accounts.",
+  cash: "Contributions paid into the Bank or a petty cash box raise that balance (cafe capital → cafe petty cash, villa capital → villa petty cash; shared capital → bank). 'Paid directly' (e.g. straight to a supplier) is recorded but does not touch the business accounts.",
 } as const;
 
 export interface CapitalSummary {
   total: number;
   byPartner: { name: string; amount: number; share: number | null }[];
   byBusiness: { business: string; total: number; byPartner: { name: string; amount: number; share: number | null }[] }[];
+}
+
+/** Where capital for each business may be paid: each petty cash box belongs to one business; Bank and "Paid directly" fit all. */
+export function capitalPaidIntoFor(business: CapitalBusiness | string): CapitalPaidInto[] {
+  if (business === "MO Cafe") return ["Bank", "Petty cash", "Paid directly"];
+  if (business === "MO Villa") return ["Bank", "Villa petty cash", "Paid directly"];
+  return ["Bank", "Paid directly"];
+}
+
+export function capitalAccountAllowed(business: string, paidInto: string): boolean {
+  return (capitalPaidIntoFor(business) as string[]).includes(paidInto);
 }
 
 /** Totals per partner and per business. Partners come from Settings; any other name found is listed too. */

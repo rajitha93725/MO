@@ -1,3 +1,4 @@
+import { accountLabel } from "@/lib/types";
 import { requirePage } from "@/lib/auth";
 import { repo } from "@/lib/data/repo";
 import { today } from "@/lib/today";
@@ -92,7 +93,7 @@ export default async function CapitalPage({ searchParams }: { searchParams: Prom
           <div key={r.capital_id} className="item">
             <div className="grow">
               <div className="spread"><b>{r.partner} · {r.description}</b><b className="num">{rs(r.amount)}</b></div>
-              <div className="small muted">{r.date} · {r.business} · {r.paid_into}{r.notes ? ` · ${r.notes}` : ""}</div>
+              <div className="small muted">{r.date} · {r.business} · {accountLabel(r.paid_into)}{r.notes ? ` · ${r.notes}` : ""}</div>
             </div>
             <a className="btn small" href={`?edit=${r.capital_id}`}>Edit</a>
             <DeleteCapitalButton id={r.capital_id} />

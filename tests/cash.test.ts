@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { accountBalance, accountForPayment, isPettyLow, owedToPartners } from "../src/lib/calc/cash";
+import { accountBalance, accountForPayment, isPettyLow, owedToPartners, villaRowAccounts } from "../src/lib/calc/cash";
+import { capitalAccountAllowed } from "../src/lib/calc/capital";
+import { CAFE_MOVEMENT_TYPES, accountLabel, movementAccounts } from "../src/lib/types";
 import { cost, monthly, oneTime, order, settings } from "./fixtures";
-import type { CashMovement, FixedPayment } from "../src/lib/types";
+import type { CapitalContribution, CashMovement, FixedPayment, VillaRecord } from "../src/lib/types";
 
 const mv = (p: Partial<CashMovement> & Pick<CashMovement, "type" | "amount">): CashMovement => ({
   movement_id: Math.random().toString(36), date: "2026-12-01", account: "Petty cash", notes: "", moved_by: "Rajitha", ...p,
@@ -93,5 +95,77 @@ describe("low petty cash warning", () => {
     expect(isPettyLow(19_999, s)).toBe(true);
     expect(isPettyLow(20_000, s)).toBe(false);
     expect(isPettyLow(5_000, settings({ petty_low_threshold: "1000" }))).toBe(false);
+  });
+});
+
+describe("separate cafe and villa petty cash", () => {
+  const villaRow = (o: Partial<VillaRecord>): VillaRecord => ({
+    record_id: "V", record_type: "Booking", date_entered: "2026-12-01", room_number: "R1", room_type: "", platform: "Direct", booking_ref: "",
+    guest_name: "", guests: 2, check_in: "2026-12-01", check_out: "2026-12-03", nights: 2, status: "Confirmed", total_price: 0, commission_pct: 0,
+    commission_amount: 0, booking_costs: 0, net_payout: 0, payout_status: "Received", payout_date: "2026-12-03", received_to: "Villa petty cash",
+    cost_category: "", cost_description: "", cost_amount: 0, cost_room: "", paid_from: "", notes: "", ...o,
+  });
+  const input = {
+    orders: [order({ date: "2026-12-02", qty: 1, unit_price: 10_000, unit_cost: 0, payment_method: "Cash" })],
+    dailyCosts: [cost({ date: "2026-12-02", amount: 2_000, paid_from: "Petty cash" })],
+    fixedCosts: [],
+    fixedPayments: [],
+    villa: [
+      villaRow({ record_id: "B1", net_payout: 16_500 }),
+      villaRow({ record_id: "C1", record_type: "Cost", cost_amount: 1_500, paid_from: "Villa petty cash", payout_status: "", received_to: "" }),
+    ],
+    movements: [
+      mv({ type: "Opening balance", account: "Villa petty cash", amount: 5_000, date: "2026-11-30" }),
+      mv({ type: "Opening balance", account: "Bank", amount: 100_000, date: "2026-11-30" }),
+      mv({ type: "Transfer bank→villa petty", account: "Bank", amount: 3_000 }),
+      mv({ type: "Transfer villa petty→bank", account: "Villa petty cash", amount: 10_000 }),
+      mv({ type: "Transfer bank→petty", account: "Bank", amount: 4_000 }),
+      mv({ type: "Cash sales deposit", account: "Petty cash", amount: 6_000 }),
+    ],
+    capital: [
+      { capital_id: "K1", date: "2026-12-01", partner: "Rajitha", business: "MO Villa", description: "", amount: 7_000, paid_into: "Villa petty cash", notes: "" },
+    ] as CapitalContribution[],
+  };
+  it("cafe petty cash only has cafe money", () => {
+    const b = accountBalance("Petty cash", input);
+    expect([b.sales, b.dailyCostsPaid, b.villaPayouts, b.villaCostsPaid, b.capitalIn]).toEqual([10_000, 2_000, 0, 0, 0]);
+    expect([b.transfersIn, b.transfersOut]).toEqual([4_000, 6_000]);
+    expect(b.balance).toBe(10_000 - 2_000 + 4_000 - 6_000);
+  });
+  it("villa petty cash only has villa money", () => {
+    const b = accountBalance("Villa petty cash", input);
+    expect([b.opening, b.capitalIn, b.sales, b.dailyCostsPaid, b.villaPayouts, b.villaCostsPaid]).toEqual([5_000, 7_000, 0, 0, 16_500, 1_500]);
+    expect([b.transfersIn, b.transfersOut]).toEqual([3_000, 10_000]);
+    expect(b.balance).toBe(5_000 + 7_000 + 16_500 + 3_000 - 1_500 - 10_000);
+  });
+  it("the shared bank gets and gives transfers for both boxes", () => {
+    const b = accountBalance("Bank", input);
+    expect([b.transfersIn, b.transfersOut]).toEqual([10_000 + 6_000, 3_000 + 4_000]);
+    expect(b.balance).toBe(100_000 + 16_000 - 7_000);
+  });
+  it("money only moves between boxes, never appears or disappears", () => {
+    const total = (["Petty cash", "Villa petty cash", "Bank"] as const).reduce((t, a) => t + accountBalance(a, input).balance, 0);
+    expect(total).toBe(5_000 + 100_000 + 7_000 + 10_000 - 2_000 + 16_500 - 1_500);
+  });
+  it("old villa rows saved as 'Petty cash' belong to the villa box", () => {
+    const old = villaRowAccounts(villaRow({ received_to: "Petty cash" as VillaRecord["received_to"] }));
+    expect(old.received_to).toBe("Villa petty cash");
+    expect(villaRowAccounts(villaRow({ record_type: "Cost", paid_from: "Petty cash" as VillaRecord["paid_from"] })).paid_from).toBe("Villa petty cash");
+    expect(villaRowAccounts(villaRow({ received_to: "Bank" })).received_to).toBe("Bank");
+  });
+  it("movement directions", () => {
+    expect(movementAccounts({ type: "Transfer bank→villa petty", account: "Bank" })).toEqual(["Bank", "Villa petty cash"]);
+    expect(movementAccounts({ type: "Cash sales deposit", account: "Petty cash" })).toEqual(["Petty cash", "Bank"]);
+    expect(movementAccounts({ type: "Top-up", account: "Villa petty cash" })).toEqual(["Villa petty cash"]);
+    expect(CAFE_MOVEMENT_TYPES).not.toContain("Transfer bank→villa petty");
+  });
+  it("capital goes only into its own business's box", () => {
+    expect(capitalAccountAllowed("MO Cafe", "Petty cash")).toBe(true);
+    expect(capitalAccountAllowed("MO Cafe", "Villa petty cash")).toBe(false);
+    expect(capitalAccountAllowed("MO Villa", "Villa petty cash")).toBe(true);
+    expect(capitalAccountAllowed("MO Villa", "Petty cash")).toBe(false);
+    expect(capitalAccountAllowed("Both", "Petty cash")).toBe(false);
+    expect(capitalAccountAllowed("Both", "Bank")).toBe(true);
+    expect(accountLabel("Petty cash")).toBe("Cafe petty cash");
   });
 });

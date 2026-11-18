@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { deleteVillaRecord, markPayoutReceived, saveBooking, saveVillaCost } from "@/app/actions";
 import { formToObject, useAction } from "@/components/ui";
 import { commissionFor, netPayoutFor, nightsBetween } from "@/lib/calc/villa";
-import { ACCOUNTS, ALL_ROOMS, BOOKING_STATUSES, PAYOUT_STATUSES, type VillaPlatform, type VillaRecord, type VillaRoom } from "@/lib/types";
+import { ACCOUNT_LABEL, VILLA_ACCOUNTS, ALL_ROOMS, BOOKING_STATUSES, PAYOUT_STATUSES, type VillaPlatform, type VillaRecord, type VillaRoom } from "@/lib/types";
 
 const n = (v: number) => Math.round(v || 0).toLocaleString("en-US");
 const toNum = (s: string) => {
@@ -114,7 +114,7 @@ export function BookingForm({ editing, rooms, platforms, today, cancelHref }: {
         <select name="payout_status" value={payout} onChange={(e) => setPayout(e.target.value)}>{PAYOUT_STATUSES.map((s) => <option key={s}>{s}</option>)}</select>
       </label>
       <label className="field"><span>Received to{payout === "Received" ? " *" : ""}</span>
-        <select name="received_to" defaultValue={editing?.received_to || (platform === "Direct" ? "Petty cash" : "Bank")}>{ACCOUNTS.map((a) => <option key={a}>{a}</option>)}</select>
+        <select name="received_to" defaultValue={editing?.received_to || (platform === "Direct" ? "Villa petty cash" : "Bank")}>{VILLA_ACCOUNTS.map((a) => <option key={a} value={a}>{ACCOUNT_LABEL[a]}</option>)}</select>
       </label>
       {payout === "Received" && <label className="field full"><span>Payout date</span><input type="date" name="payout_date" defaultValue={editing?.payout_date || today} /></label>}
       <label className="field full"><span>Notes</span><input name="notes" defaultValue={editing?.notes ?? ""} /></label>
@@ -157,7 +157,7 @@ export function CostForm({ editing, categories, rooms, today, cancelHref }: {
         <select name="cost_room" defaultValue={editing?.cost_room || ALL_ROOMS}><option>{ALL_ROOMS}</option>{rooms.map((r) => <option key={r}>{r}</option>)}</select>
       </label>
       <label className="field"><span>Paid from</span>
-        <select name="paid_from" defaultValue={editing?.paid_from || "Petty cash"}>{ACCOUNTS.map((a) => <option key={a}>{a}</option>)}</select>
+        <select name="paid_from" defaultValue={editing?.paid_from || "Villa petty cash"}>{VILLA_ACCOUNTS.map((a) => <option key={a} value={a}>{ACCOUNT_LABEL[a]}</option>)}</select>
       </label>
       <label className="field full"><span>Description</span><input name="cost_description" defaultValue={editing?.cost_description ?? ""} placeholder="e.g. 6 bath towels" /></label>
       <label className="field full"><span>Notes</span><input name="notes" defaultValue={editing?.notes ?? ""} /></label>
@@ -178,7 +178,7 @@ export function PayoutButton({ id, today, defaultTo }: { id: string; today: stri
   if (!open) return <button className="small" onClick={() => setOpen(true)}>Mark payout received</button>;
   return (
     <span className="row">
-      <select value={to} onChange={(e) => setTo(e.target.value)} style={{ width: "auto", minHeight: 36 }} aria-label="Received to">{ACCOUNTS.map((a) => <option key={a}>{a}</option>)}</select>
+      <select value={to} onChange={(e) => setTo(e.target.value)} style={{ width: "auto", minHeight: 36 }} aria-label="Received to">{VILLA_ACCOUNTS.map((a) => <option key={a} value={a}>{ACCOUNT_LABEL[a]}</option>)}</select>
       <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: 150, minHeight: 36 }} aria-label="Payout date" />
       <button className="small primary" disabled={pending} onClick={() => call(() => markPayoutReceived(id, to, date), () => setOpen(false))}>Save</button>
       <button className="small" onClick={() => setOpen(false)}>✕</button>

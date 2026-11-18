@@ -1,11 +1,14 @@
+import { TRANSFERS, type MovementType } from "../types";
 import type { Account, CapitalContribution, CashMovement, DailyCost, FixedCost, FixedPayment, ISODate, OrderLine, Settings, VillaRecord } from "../types";
 import { sum } from "./money";
 
 export const CASH_FORMULAS = {
   petty:
-    "Petty cash = Opening balance + Partner capital paid into petty cash + Cash sales + Villa payouts received to petty cash + Top-ups + Transfers bank→petty − Daily, fixed & villa costs paid from petty cash (by Business) − Transfers petty→bank − Cash sales deposits − Withdrawals",
+    "Cafe petty cash = Opening balance + Cafe capital paid into cafe petty cash + Cash sales + Top-ups + Transfers bank→cafe petty − Cafe daily & fixed costs paid from cafe petty cash (by Business) − Transfers cafe petty→bank − Cash sales deposits − Withdrawals",
+  villaPetty:
+    "Villa petty cash = Opening balance + Villa capital paid into villa petty cash + Villa payouts received to villa petty cash + Top-ups + Transfers bank→villa petty − Villa costs paid from villa petty cash − Transfers villa petty→bank − Withdrawals",
   bank:
-    "Bank = Opening balance + Partner capital paid into bank + Card & bank-transfer sales + Villa payouts received to bank + Top-ups + Transfers petty→bank + Cash sales deposits − Daily, fixed & villa costs paid from bank (by Business) − Transfers bank→petty − Withdrawals",
+    "Bank (shared) = Opening balance + Partner capital paid into bank + Card, bank-transfer & Uber sales + Villa payouts received to bank + Top-ups + Transfers from both petty cash boxes + Cash sales deposits − Daily, fixed & villa costs paid from bank (by Business) − Transfers to both petty cash boxes − Withdrawals",
   partnerPaid: "Costs with paid_by = Rajitha / Janith were paid personally: they do not reduce business balances and are listed as owed to that partner.",
 } as const;
 
@@ -54,10 +57,9 @@ export function accountBalance(account: Account, input: CashInputs, asOf?: ISODa
   const topUps = amt((m) => m.type === "Top-up" && m.account === account);
   const withdrawals = amt((m) => m.type === "Withdrawal" && m.account === account);
 
-  const pettyToBank = amt((m) => m.type === "Transfer petty→bank" || m.type === "Cash sales deposit");
-  const bankToPetty = amt((m) => m.type === "Transfer bank→petty");
-  const transfersIn = account === "Petty cash" ? bankToPetty : pettyToBank;
-  const transfersOut = account === "Petty cash" ? pettyToBank : bankToPetty;
+  const dir = (m: CashMovement) => TRANSFERS[m.type as MovementType];
+  const transfersIn = amt((m) => dir(m)?.[1] === account);
+  const transfersOut = amt((m) => dir(m)?.[0] === account);
 
   const sales = sum(
     upTo(input.orders).filter((o) => accountForPayment(o.payment_method) === account),
@@ -99,6 +101,18 @@ export function accountBalance(account: Account, input: CashInputs, asOf?: ISODa
   const balance =
     opening + capitalIn + sales + villaPayouts + topUps + transfersIn - dailyCostsPaid - fixedCostsPaid - villaCostsPaid - transfersOut - withdrawals;
   return { account, opening, capitalIn, sales, topUps, transfersIn, dailyCostsPaid, fixedCostsPaid, villaPayouts, villaCostsPaid, transfersOut, withdrawals, balance };
+}
+
+/**
+ * Villa rows saved before the cafe and villa got separate cash boxes say "Petty cash"; for the villa that is its own box.
+ * (The cafe's box keeps the stored name "Petty cash".)
+ */
+export function villaRowAccounts(r: VillaRecord): VillaRecord {
+  return {
+    ...r,
+    received_to: r.received_to === "Petty cash" ? "Villa petty cash" : r.received_to,
+    paid_from: r.paid_from === "Petty cash" ? "Villa petty cash" : r.paid_from,
+  };
 }
 
 export function isPettyLow(balance: number, settings: Pick<Settings, "petty_low_threshold">): boolean {

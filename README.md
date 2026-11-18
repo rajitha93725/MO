@@ -70,7 +70,7 @@ Cloud Secret Manager (`node scripts/set-firebase-secrets.mjs mo-ops` uploads the
 | Role | Can do |
 |---|---|
 | **owner** (a partner listed in `OWNER_EMAILS`) | Everything, including **MO Villa**, **Cash & bank**, **Settings** and **Users** |
-| **partner** | The cafe: menu, fixed costs and payments, cafe profit and their cafe share, cafe capital, to-dos, and edit or delete any cafe entry. **No villa information**: no villa page or cards, no villa profit or shares, no villa to-dos (ticked **🏡 MO Villa task** or linked to a booking), the app is called just "MO Cafe", no MO Villa or shared capital, and no Cash & bank (villa money moves through the same accounts) |
+| **partner** | The cafe: menu, fixed costs and payments, cafe profit and their cafe share, cafe capital, to-dos, and edit or delete any cafe entry. **No villa information**: no villa page or cards, no villa profit or shares, no villa to-dos (ticked **🏡 MO Villa task** or linked to a booking), the app is called just "MO Cafe", no MO Villa or shared capital. Of **Cash & bank** they see only the **Cafe petty cash** (balance, its movements, and recording cafe top-ups, withdrawals and transfers/deposits); the villa petty cash and the shared bank stay owner-only |
 | **staff** | Add orders and daily costs, and view the menu, daily sales and to-dos. No profit, cash, settings or editing of existing entries |
 
 Roles are checked on the server inside every page (`requirePage`) and server action (`requireAction`), not only hidden in the UI. Sign-in is limited to the Users table plus `BOOTSTRAP_PARTNER_EMAILS`. The owner comes from the server config (`OWNER_EMAILS`), never from the database, so no one can give themselves owner access from inside the app.
@@ -115,7 +115,7 @@ Written automatically whenever a partner changes an item's cost or price.
 | entered_by | Email of the user who saved it |
 
 ### Daily_Costs
-`cost_id, date, category (list from Settings), description, amount, paid_from (Petty cash / Bank), paid_by (Business / Rajitha / Janith), notes, entered_by`
+`cost_id, date, category (list from Settings), description, amount, paid_from (Petty cash = cafe petty cash / Bank), paid_by (Business / Rajitha / Janith), notes, entered_by`
 Costs paid **personally** by a partner (`paid_by` ≠ Business) count in profit but don't reduce business cash. They're shown as "owed to partner".
 
 ### Fixed_Costs
@@ -125,7 +125,9 @@ Costs paid **personally** by a partner (`paid_by` ≠ Business) count in profit 
 `payment_id, fixed_id, month, amount, paid_date, paid_from, notes`. Each row records that a monthly fixed cost was paid for a month; "Mark paid" on the Fixed costs screen creates it.
 
 ### Cash_Movements
-`movement_id, date, account (Petty cash / Bank), type, amount, notes, moved_by (Rajitha / Janith / Staff: who moved the money, required)`
+`movement_id, date, account (Petty cash = cafe petty cash / Villa petty cash / Bank), type, amount, notes, moved_by (Rajitha / Janith / Staff: who moved the money, required)`
+
+Types: Opening balance, Top-up, Withdrawal (on the chosen account); Transfer petty→bank, Transfer bank→petty, Cash sales deposit (cafe petty cash ↔ bank); Transfer villa petty→bank, Transfer bank→villa petty.
 Types: Opening balance, Top-up, Withdrawal (these use `account`), and Transfer petty→bank, Transfer bank→petty, Cash sales deposit (petty→bank). The direction of those three is fixed.
 
 ### Todo
@@ -179,7 +181,9 @@ For each month:
 - **YTD** = Jan (or the opening month, if later) through the current month
 
 Cash:
-- **Petty cash** = opening + cash sales + top-ups + transfers bank→petty − daily and fixed costs paid from petty cash by the Business − transfers petty→bank − cash sales deposits − withdrawals
+There are two cash boxes and one shared bank. The cafe's box is stored as `Petty cash` and shown as **Cafe petty cash**.
+- **Cafe petty cash** = opening + cafe capital paid in + cash sales + top-ups + transfers bank→cafe petty − cafe daily and fixed costs paid from it by the Business − transfers cafe petty→bank − cash sales deposits − withdrawals
+- **Villa petty cash** = opening + villa capital paid in + villa payouts received to it + top-ups + transfers bank→villa petty − villa costs paid from it − transfers villa petty→bank − withdrawals. Villa rows saved before the split with `Petty cash` count here.
 - **Bank** = opening + card and bank-transfer sales + top-ups + transfers petty→bank + cash sales deposits − bank-paid daily and fixed costs − transfers bank→petty − withdrawals
 - Monthly fixed costs reduce cash only once they're recorded as paid. One-time costs reduce cash in `month_paid`.
 
@@ -212,7 +216,7 @@ tests/                      unit tests (profit, cash, daily, validation, CSV)
 ```bash
 npm test
 ```
-138 tests cover the profit formulas, fixed-cost allocation (monthly, closed months, one-time full or spread), planned vs actual, partner split and rounding, YTD, cash and bank balances, transfers, the low-cash warning, the daily view, to-do urgency, validation, CSV escaping, the Supabase store and schema, passwords and the Users list, and MO Villa (nights, commission and payout, splitting stays across months, double booking, monthly villa profit, occupancy, per-room profit, cash and combined profit).
+145 tests cover the profit formulas, fixed-cost allocation (monthly, closed months, one-time full or spread), planned vs actual, partner split and rounding, YTD, cash and bank balances, transfers, the low-cash warning, the daily view, to-do urgency, validation, CSV escaping, the Supabase store and schema, passwords and the Users list, and MO Villa (nights, commission and payout, splitting stays across months, double booking, monthly villa profit, occupancy, per-room profit, cash and combined profit).
 
 ---
 
@@ -233,10 +237,10 @@ Screen: **More → MO Villa** (owner only), with four views: **Bookings**, **Cos
 | commission_pct, commission_amount | % defaults from the platform; amount = total × %, can be overridden | |
 | booking_costs | per-stay out costs (cleaning, laundry, breakfast, transfers) | |
 | net_payout | total − commission − booking costs (calculated) | |
-| payout_status, payout_date, received_to | Pending / Received, date, Bank / Petty cash | |
+| payout_status, payout_date, received_to | Pending / Received, date, Bank / Villa petty cash | |
 | cost_category, cost_description, cost_amount | | ✓ |
 | cost_room | | a room or `All rooms` |
-| paid_from | | Bank / Petty cash |
+| paid_from | | Bank / Villa petty cash |
 | notes | ✓ | ✓ |
 
 ### Villa settings (Settings tab)
@@ -269,11 +273,11 @@ Screen: **More → MO Villa** (owner only), with four views: **Bookings**, **Cos
 
 Screen: **More → Capital** (partners; only the owner sees MO Villa and shared ("Both") entries).
 
-**Capital tab:** `capital_id, date, partner, business (MO Cafe / MO Villa / Both), description, amount, paid_into (Bank / Petty cash / Paid directly), notes`
+**Capital tab:** `capital_id, date, partner, business (MO Cafe / MO Villa / Both), description, amount, paid_into (Bank / Petty cash / Villa petty cash / Paid directly), notes`
 
 - Shows each partner's total contribution and **share of capital** (e.g. Rajitha 95% / Janith 5%), overall and per business.
 - **Tracked only:** capital does **not** change the profit split. Profit stays at the Settings split (50/50), because Rajitha contributes money and Janith contributes cooking and management.
-- `paid_into` = Bank or Petty cash raises that balance on the Cash page. **Paid directly** (straight to a supplier) is recorded but doesn't touch the business accounts.
+- `paid_into` = Bank or a petty cash box raises that balance on the Cash page. Cafe capital may go into the cafe petty cash, villa capital into the villa petty cash, shared (Both) capital only into the Bank. **Paid directly** (straight to a supplier) is recorded but doesn't touch the business accounts.
 - Record money a partner puts into the business here, not as a cash "Opening balance", so it isn't counted twice.
 
 ## 10. Monthly report
@@ -287,7 +291,7 @@ Screen: **More → Reports** (partners). Pick a month with ‹ › or the month 
 | Sales | By meal, by payment method, by menu category, and day by day against target; trading days, best day, average per trading day |
 | Items sold | Every item ranked by sales: qty, sales, food cost, gross profit, food cost % (above target shown red) |
 | Order details | One row per order: date, time, meal, items, payment, total, entered by |
-| Daily costs | By category, by account (Petty cash / Bank), by who paid, plus the full list |
+| Daily costs | By category, by account (Cafe petty cash / Bank), by who paid, plus the full list |
 | Fixed costs | Planned vs actual, paid or not, amount counted in profit |
 | MO Villa *(owner only)* | Villa profit, occupancy per room, average price per night, by platform, per-room profit, bookings touching the month (nights and gross in this month), villa costs |
 | Business profit & partner shares *(owner only)* | Cafe share + villa share per partner (Settings: `partners`, `villa_partners`) |

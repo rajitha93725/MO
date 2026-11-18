@@ -7,13 +7,14 @@ import { V, ValidationError } from "@/lib/validate";
 import { today, nowTime } from "@/lib/today";
 import { parsePartners, parseSettings } from "@/lib/settings";
 import {
-  ACCOUNTS, ALL_ROOMS, BOOKING_STATUSES, CAPITAL_BUSINESSES, CAPITAL_PAID_INTO, MEALS, MOVED_BY, MOVEMENT_TYPES, PAID_BY,
+  ACCOUNTS, CAFE_ACCOUNTS, VILLA_ACCOUNTS, CAFE_MOVEMENT_TYPES, TRANSFERS, movementAccounts, ALL_ROOMS, BOOKING_STATUSES, CAPITAL_BUSINESSES, CAPITAL_PAID_INTO, MEALS, MOVED_BY, MOVEMENT_TYPES, PAID_BY,
   PAYMENT_METHODS, PAYOUT_STATUSES, type OrderChannel, PRIORITIES, type CapitalContribution,
   isVillaTodo, type DailyCost, type FixedCost, type FixedPayment, type MenuItem, type OrderLine, type TargetPeriod, type Todo, type VillaRecord,
 } from "@/lib/types";
 import { commissionFor, findOverlaps, netPayoutFor, nightsBetween } from "@/lib/calc/villa";
 import type { ReceiptOrder } from "@/lib/receipt";
 import { buildUsers, type UserForm } from "@/lib/users";
+import { capitalAccountAllowed } from "@/lib/calc/capital";
 import { hashPassword } from "@/lib/password";
 import { UBER_COST_CATEGORY, uberCommission, uberCostId, uberPrice } from "@/lib/calc/uber";
 
@@ -133,7 +134,7 @@ export async function saveDailyCost(form: Record<string, string>): Promise<Actio
       category: v.oneOf("Category", form.category, settings.cost_categories),
       description: v.required("Description", form.description),
       amount: v.amount("Amount", form.amount, { allowZero: false }),
-      paid_from: v.oneOf("Paid from", form.paid_from, ACCOUNTS),
+      paid_from: v.oneOf("Paid from", form.paid_from, CAFE_ACCOUNTS),
       paid_by: v.oneOf("Paid by", form.paid_by, PAID_BY),
       notes: (form.notes ?? "").trim(),
       entered_by: user.email,
@@ -219,7 +220,7 @@ export async function saveFixedCost(form: Record<string, string>): Promise<Actio
       start_month: frequency === "Monthly" ? v.month("Start month", form.start_month) : "",
       end_month: frequency === "Monthly" ? v.month("End month", form.end_month, true) : "",
       month_paid: frequency === "One-time" ? v.month("Month paid", form.month_paid) : "",
-      paid_from: v.oneOf("Paid from", form.paid_from, ACCOUNTS),
+      paid_from: v.oneOf("Paid from", form.paid_from, CAFE_ACCOUNTS),
       notes: (form.notes ?? "").trim(),
     };
     if (row.end_month && row.start_month) v.check(row.end_month >= row.start_month, "End month must be after start month");
@@ -248,7 +249,7 @@ export async function recordFixedPayment(form: Record<string, string>): Promise<
       month: v.month("Month", form.month),
       amount: v.amount("Amount", form.amount, { allowZero: false }),
       paid_date: v.date("Paid date", form.paid_date),
-      paid_from: v.oneOf("Paid from", form.paid_from, ACCOUNTS),
+      paid_from: v.oneOf("Paid from", form.paid_from, CAFE_ACCOUNTS),
       notes: (form.notes ?? "").trim(),
     };
     v.done();
@@ -266,18 +267,18 @@ export async function undoFixedPayment(fixed_id: string, month: string): Promise
   });
 }
 
-// ---------------- Cash movements (partners) ----------------
+// ---------------- Cash movements (owner: all accounts; other partners: cafe petty cash only) ----------------
 
 export async function saveMovement(form: Record<string, string>): Promise<ActionResult> {
   return run(async () => {
-    await requireAction("owner");
+    const user = await requireAction("partner");
     const v = new V();
-    const type = v.oneOf("Type", form.type, MOVEMENT_TYPES);
+    const type = v.oneOf("Type", form.type, user.owner ? MOVEMENT_TYPES : CAFE_MOVEMENT_TYPES);
     const row = {
       movement_id: newId("M"),
       date: v.date("Date", form.date),
       // transfers/deposits have a fixed direction; the source account is recorded for clarity
-      account: type === "Transfer bank→petty" ? "Bank" : type === "Transfer petty→bank" || type === "Cash sales deposit" ? "Petty cash" : v.oneOf("Account", form.account, ACCOUNTS),
+      account: TRANSFERS[type]?.[0] ?? v.oneOf("Account", form.account, user.owner ? ACCOUNTS : (["Petty cash"] as const)),
       type,
       amount: v.amount("Amount", form.amount, { allowZero: false }),
       notes: (form.notes ?? "").trim(),
@@ -291,7 +292,12 @@ export async function saveMovement(form: Record<string, string>): Promise<Action
 
 export async function deleteMovement(id: string): Promise<ActionResult> {
   return run(async () => {
-    await requireAction("owner");
+    const user = await requireAction("partner");
+    if (!user.owner) {
+      const m = (await repo.movements()).find((x) => x.movement_id === id);
+      if (!m) throw new Error("Movement not found.");
+      if (!movementAccounts(m).includes("Petty cash") || !CAFE_MOVEMENT_TYPES.includes(m.type)) throw new Error("Only the owner can delete this movement.");
+    }
     await repo.remove("cash", id);
     return "Movement deleted";
   });
@@ -445,8 +451,8 @@ export async function saveBooking(form: Record<string, string>): Promise<ActionR
     const payout_status = v.oneOf("Payout status", form.payout_status || "Pending", PAYOUT_STATUSES);
     const payout_date = v.optionalDate("Payout date", form.payout_date);
     let received_to: VillaRecord["received_to"] = "";
-    if (payout_status === "Received") received_to = v.oneOf("Received to", form.received_to, ACCOUNTS);
-    else if ((ACCOUNTS as string[]).includes(form.received_to)) received_to = form.received_to as VillaRecord["received_to"];
+    if (payout_status === "Received") received_to = v.oneOf("Received to", form.received_to, VILLA_ACCOUNTS);
+    else if ((VILLA_ACCOUNTS as string[]).includes(form.received_to)) received_to = form.received_to as VillaRecord["received_to"];
     v.done();
 
     const record_id = form.record_id || newId("VB");
@@ -493,7 +499,7 @@ export async function markPayoutReceived(record_id: string, received_to: string,
   return run(async () => {
     await requireAction("owner");
     const v = new V();
-    const to = v.oneOf("Received to", received_to, ACCOUNTS);
+    const to = v.oneOf("Received to", received_to, VILLA_ACCOUNTS);
     const date = v.date("Payout date", payout_date);
     v.done();
     await repo.update("villa", record_id, { payout_status: "Received", received_to: to, payout_date: date });
@@ -516,7 +522,7 @@ export async function saveVillaCost(form: Record<string, string>): Promise<Actio
       cost_description: (form.cost_description ?? "").trim(),
       cost_amount: v.amount("Amount", form.cost_amount, { allowZero: false }),
       cost_room: v.oneOf("Room", form.cost_room || ALL_ROOMS, [ALL_ROOMS, ...rooms]),
-      paid_from: v.oneOf("Paid from", form.paid_from, ACCOUNTS),
+      paid_from: v.oneOf("Paid from", form.paid_from, VILLA_ACCOUNTS),
       notes: (form.notes ?? "").trim(),
     };
     v.done();
@@ -560,6 +566,7 @@ export async function saveCapital(form: Record<string, string>): Promise<ActionR
       paid_into: v.oneOf("Paid into", form.paid_into, CAPITAL_PAID_INTO),
       notes: (form.notes ?? "").trim(),
     };
+    v.check(capitalAccountAllowed(row.business, row.paid_into), `${row.business} capital can't go into ${row.paid_into === "Petty cash" ? "the cafe petty cash" : row.paid_into.toLowerCase()}`);
     v.done();
     if (form.capital_id) await repo.update("capital", form.capital_id, row);
     else await repo.insert("capital", [row]);

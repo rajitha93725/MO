@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { deleteDailyCost, saveDailyCost } from "@/app/actions";
 import { CsvButton, Tip, formToObject, useAction } from "@/components/ui";
 import { HEADERS } from "@/lib/data/schema";
-import { ACCOUNTS, PAID_BY, type DailyCost } from "@/lib/types";
+import { ACCOUNT_LABEL, CAFE_ACCOUNTS, PAID_BY, accountLabel, type DailyCost } from "@/lib/types";
 import { CASH_FORMULAS, owedToPartners } from "@/lib/calc/cash";
 
 const n = (v: number) => Math.round(v).toLocaleString("en-US");
@@ -50,7 +50,7 @@ export function CostsManager({ costs, allCosts, month, today, categories, isPart
         </label>
         <label className="field full"><span>Description</span><input name="description" required defaultValue={editing?.description ?? ""} placeholder="e.g. Fish market" /></label>
         <label className="field"><span>Paid from</span>
-          <select name="paid_from" defaultValue={editing?.paid_from ?? "Petty cash"}>{ACCOUNTS.map((a) => <option key={a}>{a}</option>)}</select>
+          <select name="paid_from" defaultValue={editing?.paid_from ?? "Petty cash"}>{CAFE_ACCOUNTS.map((a) => <option key={a} value={a}>{ACCOUNT_LABEL[a]}</option>)}</select>
         </label>
         <label className="field"><span>Paid by</span>
           <select name="paid_by" defaultValue={editing?.paid_by ?? "Business"}>{PAID_BY.map((a) => <option key={a}>{a}</option>)}</select>
@@ -88,7 +88,7 @@ export function CostsManager({ costs, allCosts, month, today, categories, isPart
             {costs.map((c) => (
               <tr key={c.cost_id}>
                 <td>{c.date.slice(5)}</td><td>{c.category}</td><td>{c.description}{c.notes && <div className="small muted">{c.notes}</div>}</td>
-                <td className="num">{n(c.amount)}</td><td>{c.paid_from}</td><td>{c.paid_by}</td>
+                <td className="num">{n(c.amount)}</td><td>{accountLabel(c.paid_from)}</td><td>{c.paid_by}</td>
                 {isPartner && (
                   <td style={{ whiteSpace: "nowrap" }}>
                     <button className="small" onClick={() => { setEditing(c); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Edit</button>{" "}

@@ -13,8 +13,18 @@ export const ALL_PAYMENT_METHODS: PaymentMethod[] = [...PAYMENT_METHODS, "Uber"]
 /** Where an order came from. */
 export type OrderChannel = "Cafe" | "Uber";
 
-export type Account = "Petty cash" | "Bank";
-export const ACCOUNTS: Account[] = ["Petty cash", "Bank"];
+/**
+ * Money accounts. "Petty cash" is the CAFE's cash box (the stored value stays "Petty cash" so old rows keep working);
+ * "Villa petty cash" is the villa's own cash box. The Bank is shared.
+ */
+export type Account = "Petty cash" | "Villa petty cash" | "Bank";
+export const ACCOUNTS: Account[] = ["Petty cash", "Villa petty cash", "Bank"];
+/** Accounts the cafe pays from and receives into. */
+export const CAFE_ACCOUNTS: Account[] = ["Petty cash", "Bank"];
+/** Accounts the villa pays from and receives into. */
+export const VILLA_ACCOUNTS: Account[] = ["Villa petty cash", "Bank"];
+export const ACCOUNT_LABEL: Record<Account, string> = { "Petty cash": "Cafe petty cash", "Villa petty cash": "Villa petty cash", Bank: "Bank" };
+export const accountLabel = (a: string) => ACCOUNT_LABEL[a as Account] ?? a;
 
 export type PaidBy = "Business" | "Rajitha" | "Janith";
 export const PAID_BY: PaidBy[] = ["Business", "Rajitha", "Janith"];
@@ -117,7 +127,9 @@ export type MovementType =
   | "Withdrawal"
   | "Transfer petty→bank"
   | "Transfer bank→petty"
-  | "Cash sales deposit";
+  | "Cash sales deposit"
+  | "Transfer villa petty→bank"
+  | "Transfer bank→villa petty";
 
 export const MOVEMENT_TYPES: MovementType[] = [
   "Opening balance",
@@ -126,7 +138,36 @@ export const MOVEMENT_TYPES: MovementType[] = [
   "Transfer petty→bank",
   "Transfer bank→petty",
   "Cash sales deposit",
+  "Transfer villa petty→bank",
+  "Transfer bank→villa petty",
 ];
+
+/** Fixed-direction movements: [from, to]. ("petty" in the older names is the cafe's petty cash.) */
+export const TRANSFERS: Partial<Record<MovementType, [Account, Account]>> = {
+  "Transfer petty→bank": ["Petty cash", "Bank"],
+  "Transfer bank→petty": ["Bank", "Petty cash"],
+  "Cash sales deposit": ["Petty cash", "Bank"],
+  "Transfer villa petty→bank": ["Villa petty cash", "Bank"],
+  "Transfer bank→villa petty": ["Bank", "Villa petty cash"],
+};
+
+const MOVEMENT_LABELS: Partial<Record<MovementType, string>> = {
+  "Transfer petty→bank": "Transfer cafe petty → bank",
+  "Transfer bank→petty": "Transfer bank → cafe petty",
+  "Cash sales deposit": "Cash sales deposit (cafe petty → bank)",
+  "Transfer villa petty→bank": "Transfer villa petty → bank",
+  "Transfer bank→villa petty": "Transfer bank → villa petty",
+};
+/** Movement type as shown on screen (the stored names say "petty" for the cafe's petty cash). */
+export const movementLabel = (t: string) => MOVEMENT_LABELS[t as MovementType] ?? t;
+
+/** Accounts a movement changes. */
+export function movementAccounts(m: Pick<CashMovement, "type" | "account">): Account[] {
+  return TRANSFERS[m.type] ?? [m.account];
+}
+
+/** Movement types a partner who is not the owner may record (cafe petty cash only). */
+export const CAFE_MOVEMENT_TYPES: MovementType[] = ["Opening balance", "Top-up", "Withdrawal", "Transfer petty→bank", "Transfer bank→petty", "Cash sales deposit"];
 
 export const MOVED_BY = ["Rajitha", "Janith", "Staff"] as const;
 export type MovedBy = (typeof MOVED_BY)[number];
@@ -145,7 +186,7 @@ export interface CashMovement {
 
 export const CAPITAL_BUSINESSES = ["MO Cafe", "MO Villa", "Both"] as const;
 export type CapitalBusiness = (typeof CAPITAL_BUSINESSES)[number];
-export const CAPITAL_PAID_INTO = ["Bank", "Petty cash", "Paid directly"] as const;
+export const CAPITAL_PAID_INTO = ["Bank", "Petty cash", "Villa petty cash", "Paid directly"] as const;
 export type CapitalPaidInto = (typeof CAPITAL_PAID_INTO)[number];
 
 /** Money a partner put into the business. Tracked only: it does not change the profit split. */

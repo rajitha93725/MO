@@ -9,7 +9,7 @@ import { CsvButton, Tip } from "@/components/ui";
 import { StorageError } from "@/components/StorageError";
 import { HEADERS } from "@/lib/data/schema";
 import { BarSeriesChart } from "@/components/Charts";
-import { ALL_ROOMS, type Settings, type VillaRecord } from "@/lib/types";
+import { ALL_ROOMS, accountLabel, type Settings, type VillaRecord } from "@/lib/types";
 import { BookingForm, CostForm, PayoutButton, DeleteVillaButton } from "./VillaForms";
 
 type View = "bookings" | "costs" | "summary" | "calendar";
@@ -123,7 +123,7 @@ export default async function VillaPage({ searchParams }: { searchParams: Promis
                 </div>
                 <div className="row" style={{ marginTop: 6 }}>
                   <a className="btn small" href={q({ edit: b.record_id })}>Edit</a>
-                  {b.payout_status !== "Received" && b.net_payout > 0 && <PayoutButton id={b.record_id} today={t} defaultTo={b.platform === "Direct" ? "Petty cash" : "Bank"} />}
+                  {b.payout_status !== "Received" && b.net_payout > 0 && <PayoutButton id={b.record_id} today={t} defaultTo={b.platform === "Direct" ? "Villa petty cash" : "Bank"} />}
                   <DeleteVillaButton id={b.record_id} label="booking" />
                 </div>
               </div>
@@ -157,7 +157,7 @@ export default async function VillaPage({ searchParams }: { searchParams: Promis
               {list.map((c) => (
                 <tr key={c.record_id}>
                   <td>{c.date_entered.slice(5)}</td><td>{c.cost_category}</td><td>{c.cost_description}</td><td>{c.cost_room}</td>
-                  <td className="num">{num(c.cost_amount)}</td><td>{c.paid_from}</td>
+                  <td className="num">{num(c.cost_amount)}</td><td>{accountLabel(c.paid_from)}</td>
                   <td style={{ whiteSpace: "nowrap" }}><a className="btn small" href={`?view=costs&month=${month}&cost=${c.record_id}`}>Edit</a> <DeleteVillaButton id={c.record_id} label="cost" /></td>
                 </tr>
               ))}

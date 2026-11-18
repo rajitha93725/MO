@@ -1,3 +1,4 @@
+import { accountLabel, movementLabel } from "@/lib/types";
 import { requirePage } from "@/lib/auth";
 import { repo } from "@/lib/data/repo";
 import { today } from "@/lib/today";
@@ -108,7 +109,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           ["Villa occupancy %", o.villa.occupancy === null ? "-" : (o.villa.occupancy * 100).toFixed(1)],
           ["Total profit (cafe + villa)", o.combined.total],
           ...o.combined.shares.map((s) => [`Share ${s.name} (${shareLabel(s)})`, s.amount]),
-          ...o.cash.flatMap((c) => [[`${c.account} opening`, c.opening], [`${c.account} closing`, c.closing]]),
+          ...o.cash.flatMap((c) => [[`${accountLabel(c.account)} opening`, c.opening], [`${accountLabel(c.account)} closing`, c.closing]]),
         ]
       : []),
   ];
@@ -212,7 +213,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
               </tbody>
             </table>
           </div>
-          <Groups title="By payment" rows={r.byPayment} countLabel="Orders" tip="Cash goes to petty cash; card and bank transfer go to the bank" />
+          <Groups title="By payment" rows={r.byPayment} countLabel="Orders" tip="Cash goes to the cafe petty cash; card, bank transfer and Uber go to the bank" />
           <Groups title="By menu category" rows={r.byCategory} countLabel="Lines" />
         </div>
         <div className="table-wrap">
@@ -275,14 +276,14 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       >
         <div className="grid cols-3">
           <Groups title="By category" rows={r.costsByCategory} countLabel="Entries" />
-          <Groups title="Paid from" rows={r.costsByAccount} countLabel="Entries" />
+          <Groups title="Paid from" rows={r.costsByAccount.map((g) => ({ ...g, name: accountLabel(g.name) }))} countLabel="Entries" />
           <Groups title="Paid by" rows={r.costsByPaidBy} countLabel="Entries" tip="Costs paid personally by a partner count in profit but are owed back to that partner" />
         </div>
         <div className="table-wrap report-long">
           <table className="small">
             <thead><tr><th>Date</th><th>Category</th><th>Description</th><th className="num">Amount</th><th>From</th><th>By</th></tr></thead>
             <tbody>
-              {r.costList.map((c) => <tr key={c.cost_id}><td style={{ whiteSpace: "nowrap" }}>{c.date}</td><td>{c.category}</td><td>{c.description}</td><td className="num">{num(c.amount)}</td><td>{c.paid_from}</td><td>{c.paid_by}</td></tr>)}
+              {r.costList.map((c) => <tr key={c.cost_id}><td style={{ whiteSpace: "nowrap" }}>{c.date}</td><td>{c.category}</td><td>{c.description}</td><td className="num">{num(c.amount)}</td><td>{accountLabel(c.paid_from)}</td><td>{c.paid_by}</td></tr>)}
               {r.costList.length === 0 && <tr><td colSpan={6} className="muted">No daily costs this month</td></tr>}
               {r.costList.length > 0 && <tr className="total"><td colSpan={3}>Total</td><td className="num">{num(p.dailyCosts)}</td><td colSpan={2}></td></tr>}
             </tbody>
@@ -369,7 +370,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
               <table className="small">
                 <thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Room</th><th className="num">Amount</th><th>From</th></tr></thead>
                 <tbody>
-                  {o.villaCosts.map((c) => <tr key={c.record_id}><td>{c.date_entered}</td><td>{c.cost_category}</td><td>{c.cost_description}</td><td>{c.cost_room}</td><td className="num">{num(c.cost_amount)}</td><td>{c.paid_from}</td></tr>)}
+                  {o.villaCosts.map((c) => <tr key={c.record_id}><td>{c.date_entered}</td><td>{c.cost_category}</td><td>{c.cost_description}</td><td>{c.cost_room}</td><td className="num">{num(c.cost_amount)}</td><td>{accountLabel(c.paid_from)}</td></tr>)}
                   {o.villaCosts.length === 0 && <tr><td colSpan={6} className="muted">No villa costs this month</td></tr>}
                 </tbody>
               </table>
@@ -396,14 +397,14 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
             <div className="table-wrap">
               <table>
                 <thead><tr><th>Account</th><th className="num">Opening ({month}-01)</th><th className="num">Closing (month end)</th><th className="num">Change</th></tr></thead>
-                <tbody>{o.cash.map((c) => <tr key={c.account}><td>{c.account}</td><td className="num">{num(c.opening)}</td><td className="num">{num(c.closing)}</td><td className="num">{signed(c.change)}</td></tr>)}</tbody>
+                <tbody>{o.cash.map((c) => <tr key={c.account}><td>{accountLabel(c.account)}</td><td className="num">{num(c.opening)}</td><td className="num">{num(c.closing)}</td><td className="num">{signed(c.change)}</td></tr>)}</tbody>
               </table>
             </div>
             <div className="table-wrap">
               <table className="small">
                 <thead><tr><th>Date</th><th>Type</th><th>Account</th><th className="num">Amount</th><th>Moved by</th><th>Notes</th></tr></thead>
                 <tbody>
-                  {o.movements.map((m) => <tr key={m.movement_id}><td>{m.date}</td><td>{m.type}</td><td>{m.account}</td><td className="num">{num(m.amount)}</td><td>{m.moved_by || "-"}</td><td>{m.notes}</td></tr>)}
+                  {o.movements.map((m) => <tr key={m.movement_id}><td>{m.date}</td><td>{movementLabel(m.type)}</td><td>{accountLabel(m.account)}</td><td className="num">{num(m.amount)}</td><td>{m.moved_by || "-"}</td><td>{m.notes}</td></tr>)}
                   {o.movements.length === 0 && <tr><td colSpan={6} className="muted">No cash movements this month</td></tr>}
                 </tbody>
               </table>

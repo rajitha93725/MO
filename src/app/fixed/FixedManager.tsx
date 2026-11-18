@@ -4,7 +4,7 @@ import { useState } from "react";
 import { deleteFixedCost, recordFixedPayment, saveFixedCost, undoFixedPayment } from "@/app/actions";
 import { CsvButton, Tip, formToObject, useAction } from "@/components/ui";
 import { HEADERS } from "@/lib/data/schema";
-import { ACCOUNTS, type FixedCost, type FixedPayment } from "@/lib/types";
+import { ACCOUNT_LABEL, CAFE_ACCOUNTS, accountLabel, type FixedCost, type FixedPayment } from "@/lib/types";
 import type { FixedMonthLine } from "@/lib/calc/fixedCosts";
 import { FORMULAS } from "@/lib/calc/profit";
 
@@ -84,7 +84,7 @@ export function FixedManager(props: {
           <label className="field"><span>Amount paid (Rs)</span><input type="number" name="amount" inputMode="numeric" min={1} step={1} required defaultValue={paying.planned} /></label>
           <label className="field"><span>Paid date</span><input type="date" name="paid_date" required defaultValue={today} /></label>
           <label className="field"><span>Paid from</span>
-            <select name="paid_from" defaultValue={fixed.find((f) => f.fixed_id === paying.fixed_id)?.paid_from ?? "Bank"}>{ACCOUNTS.map((a) => <option key={a}>{a}</option>)}</select>
+            <select name="paid_from" defaultValue={fixed.find((f) => f.fixed_id === paying.fixed_id)?.paid_from ?? "Bank"}>{CAFE_ACCOUNTS.map((a) => <option key={a} value={a}>{ACCOUNT_LABEL[a]}</option>)}</select>
           </label>
           <label className="field"><span>Notes</span><input name="notes" /></label>
           <div className="row full">
@@ -154,7 +154,7 @@ export function FixedManager(props: {
             <label className="field"><span>Month paid</span><input type="month" name="month_paid" required defaultValue={editing === "new" ? month : editing.month_paid} /></label>
           )}
           <label className="field"><span>Paid from</span>
-            <select name="paid_from" defaultValue={editing === "new" ? "Bank" : editing.paid_from}>{ACCOUNTS.map((a) => <option key={a}>{a}</option>)}</select>
+            <select name="paid_from" defaultValue={editing === "new" ? "Bank" : editing.paid_from}>{CAFE_ACCOUNTS.map((a) => <option key={a} value={a}>{ACCOUNT_LABEL[a]}</option>)}</select>
           </label>
           <label className="field full"><span>Notes</span><input name="notes" defaultValue={editing === "new" ? "" : editing.notes} /></label>
           <div className="row full">
@@ -170,7 +170,7 @@ export function FixedManager(props: {
             <div className="grow">
               <b>{f.name}</b> <span className="badge">{f.frequency}</span>
               <div className="small muted">
-                {f.frequency === "Monthly" ? `${f.start_month} → ${f.end_month || "ongoing"}` : `Paid ${f.month_paid}`} · {f.paid_from}
+                {f.frequency === "Monthly" ? `${f.start_month} → ${f.end_month || "ongoing"}` : `Paid ${f.month_paid}`} · {accountLabel(f.paid_from)}
                 {f.notes && ` · ${f.notes}`}
               </div>
             </div>

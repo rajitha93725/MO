@@ -5,11 +5,13 @@ import type {
   CashMovement, DailyCost, FixedCost, FixedPayment, MenuItem, OrderLine, PriceHistory, Settings, SettingRow, TargetPeriod, Todo, UserRow, VillaRecord, CapitalContribution,
 } from "../types";
 import { parseSettings } from "../settings";
+import { villaRowAccounts } from "../calc/cash";
 
 // Typed repository used by pages and server actions. Everything storage-specific stays behind getStore().
 
 const as = <T,>(rows: Row[]) => rows as unknown as T[];
 const row = (o: object) => o as unknown as Row;
+
 
 export const repo = {
   menu: async () => as<MenuItem>(await getStore().list("menu")),
@@ -28,7 +30,9 @@ export const repo = {
   users: async () => as<UserRow>(await getStore().list("users")),
   settingRows: async () => as<SettingRow>(await getStore().list("settings")),
   targets: async () => as<TargetPeriod>(await getStore().list("targets")),
-  villa: async () => as<VillaRecord>(await getStore().list("villa")),
+  // Villa money never sits in the cafe's petty cash: rows saved before the two cash boxes were split say
+  // "Petty cash", which for the villa means its own box.
+  villa: async () => as<VillaRecord>(await getStore().list("villa")).map(villaRowAccounts),
   capital: async () => as<CapitalContribution>(await getStore().list("capital")),
 
   async settings(): Promise<Settings> {
