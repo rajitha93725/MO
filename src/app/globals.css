@@ -444,3 +444,13 @@ table.cal td.cal-booked a { display: flex; align-items: center; justify-content:
 .seg.mini button { min-height: 38px; padding: 0 10px; }
 .totals { display: grid; gap: 2px; border-top: 1px solid var(--border); padding-top: 6px; }
 .line-detail { display: block; font-size: 0.75rem; color: var(--text-2); }
+
+.step-card { border-width: 2px; }
+
+.logs-table td { vertical-align: top; }
+
+.logs-list .log-item { border-left: 4px solid var(--border); }
+.logs-list .log-item.biz-cafe { border-left-color: var(--brand); }
+.logs-list .log-item.biz-villa { border-left-color: #1a8a4a; }
+.logs-list .log-item.biz-admin { border-left-color: var(--muted); }
+.log-detail { color: var(--text-2); }

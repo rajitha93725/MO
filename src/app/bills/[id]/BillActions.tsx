@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { payBill, setBillDiscount, voidItems } from "@/app/actions";
+import { payBill, printBill, voidItems } from "@/app/actions";
 import { DiscountInput } from "@/app/order/OrderEntry";
 import { discountAmount, discountProblem, type DiscountType } from "@/lib/calc/pricing";
 import { useAction } from "@/components/ui";
@@ -12,97 +12,91 @@ import { PAYMENT_METHODS, VOID_REASONS, type PaymentMethod } from "@/lib/types";
 import type { ReceiptOrder, ReceiptSettings } from "@/lib/receipt";
 
 const rs = (n: number) => `Rs ${Math.round(n).toLocaleString("en-US")}`;
-const PRINT_KEY = "mo.printReceipt";
-const wantsPrint = () => {
-  try {
-    return localStorage.getItem(PRINT_KEY) !== "0";
-  } catch {
-    return true;
-  }
-};
 
-/** Add items, print the bill, take payment, or void the whole bill. */
-export function BillActions({ orderId, uber, invoiceNo, total, receipt, receiptSettings, authorisers, hasItems, subtotal, discountType, discountValue, defaultOffer, offerText }: {
+/**
+ * The table flow: (1) print the bill (with discount and offer) and take it to the table,
+ * (2) when the customer has paid, tap how they paid - done. Uber bills are completed with the Uber invoice no.
+ */
+export function BillActions({ orderId, uber, invoiceNo, total, receiptSettings, authorisers, hasItems, subtotal, discountType, discountValue, defaultOffer, offerText, printedAt }: {
   orderId: string; uber: boolean; invoiceNo: string; total: number; receipt: ReceiptOrder; receiptSettings: ReceiptSettings; authorisers: string[]; hasItems: boolean;
-  subtotal: number; discountType: string; discountValue: number; defaultOffer: string; offerText: string;
+  subtotal: number; discountType: string; discountValue: number; defaultOffer: string; offerText: string; printedAt: string;
 }) {
   const router = useRouter();
   const [dType, setDType] = useState<DiscountType>((discountType as DiscountType) || "");
   const [dValue, setDValue] = useState(discountValue);
   const [offerOn, setOfferOn] = useState(Boolean(offerText));
   const [offer, setOffer] = useState(offerText || defaultOffer);
-  const disc = useAction();
-  const changed = dType !== (discountType || "") || dValue !== discountValue;
   const dProblem = discountProblem(subtotal, dType, dValue, "Bill discount");
-  const [pay, setPay] = useState<PaymentMethod>("Cash");
+  const previewTotal = subtotal - (dProblem ? 0 : discountAmount(subtotal, dType, dValue));
+  const discountChanged = dType !== (discountType || "") || dValue !== discountValue;
+  const offerChanged = (offerOn ? offer.trim() : "") !== offerText;
+  const changedSincePrint = discountChanged || offerChanged;
+  const [pay, setPay] = useState<PaymentMethod | "">("");
   const [inv, setInv] = useState(invoiceNo);
-  const [confirming, setConfirming] = useState(false);
+  const [printPaid, setPrintPaid] = useState(false);
+  const pr = useAction();
   const { pending, call, ui } = useAction();
+
+  const print = () =>
+    pr.call(() => printBill(orderId, { type: dType, value: dValue }, offerOn ? offer : ""), (r) => {
+      if (r.receipt) printReceipt(r.receipt, receiptSettings);
+      router.refresh();
+    });
+  const notPrinted = changedSincePrint ? "Print the bill first (discount / offer changed)" : "";
+
   return (
     <div className="stack">
-      <div className="row">
-        <Link href={`/order?bill=${encodeURIComponent(orderId)}`} className="btn" style={{ flex: 1 }}>+ Add items</Link>
-        <button type="button" style={{ flex: 1 }} disabled={!hasItems} onClick={() => printReceipt(receipt, receiptSettings)}>🖨 Print bill</button>
-      </div>
+      <Link href={`/order?bill=${encodeURIComponent(orderId)}`} className="btn">+ Add items</Link>
 
       {hasItems && (
-        <div className="card stack">
-          <div className="spread"><b>Bill discount</b>{dType && !dProblem ? <span className="small">−{rs(discountAmount(subtotal, dType, dValue))} of {rs(subtotal)}</span> : null}</div>
+        <div className="card stack step-card">
+          <div className="spread"><b>① Bill for the table</b>{printedAt && !changedSincePrint && <span className="badge good">🖨 Printed {printedAt.slice(11)}</span>}</div>
+          <div className="spread small"><span>Bill discount</span>{dType && !dProblem ? <span>−{rs(discountAmount(subtotal, dType, dValue))} of {rs(subtotal)}</span> : null}</div>
           <DiscountInput type={dType} value={dValue} onChange={(t, v) => { setDType(t); setDValue(v); }} />
           {dProblem && <div className="errors">{dProblem}</div>}
-          {changed && !dProblem && (
-            <button type="button" disabled={disc.pending} onClick={() => disc.call(() => setBillDiscount(orderId, dType, dValue), () => router.refresh())}>
-              {disc.pending ? "Saving…" : dType ? "Apply bill discount" : "Remove bill discount"}
-            </button>
-          )}
-          {disc.ui}
-          <label className="row small"><input type="checkbox" checked={offerOn} onChange={(e) => setOfferOn(e.target.checked)} /> 🎁 Print a next-day offer on the invoice</label>
+          <label className="row small"><input type="checkbox" checked={offerOn} onChange={(e) => setOfferOn(e.target.checked)} /> 🎁 Next-day offer on the bill</label>
           {offerOn && <input value={offer} onChange={(e) => setOffer(e.target.value)} maxLength={200} placeholder="e.g. Show this bill tomorrow: 10% off breakfast" />}
+          <button type="button" className={printedAt && !changedSincePrint ? "" : "primary"} disabled={pr.pending || Boolean(dProblem)} onClick={print}>
+            {pr.pending ? "Saving…" : `🖨 ${printedAt ? "Print bill again" : "Print bill"} · ${rs(previewTotal)}`}
+          </button>
+          {pr.ui}
+          <div className="small muted">Saves the discount and offer, then prints the bill with everything on it. Take it to the table.</div>
         </div>
       )}
+
       {hasItems && uber && (
-        <div className="card stack">
-          <b>🛵 Rider picked it up – complete the Uber order</b>
+        <div className="card stack step-card">
+          <b>② Rider picked it up – complete the Uber order</b>
           <label className="field"><span>Uber invoice no. *</span>
             <input value={inv} onChange={(e) => setInv(e.target.value)} placeholder="e.g. 3F2A9" autoCapitalize="characters" spellCheck={false} maxLength={40} />
           </label>
-          <button type="button" className="primary" disabled={pending || !inv.trim()}
-            onClick={() => call(() => payBill(orderId, "Uber", inv, offerOn ? offer : ""), (r) => {
-              if (r.receipt && wantsPrint()) printReceipt(r.receipt, receiptSettings);
+          <button type="button" className="primary" disabled={pending || !inv.trim() || changedSincePrint}
+            onClick={() => call(() => payBill(orderId, "Uber", inv), (r) => {
+              if (r.receipt && printPaid) printReceipt(r.receipt, receiptSettings);
               router.push("/bills");
             })}>
-            {pending ? "Saving…" : inv.trim() ? `✓ Completed · Uber ${rs(total)}` : "Type the Uber invoice no."}
+            {pending ? "Saving…" : notPrinted || (inv.trim() ? `✓ Completed · Uber ${rs(total)}` : "Type the Uber invoice no.")}
           </button>
-          <div className="small muted">Uber pays to the bank; the commission is saved as a daily cost now.</div>
+          <label className="row small"><input type="checkbox" checked={printPaid} onChange={(e) => setPrintPaid(e.target.checked)} /> Also print a paid receipt</label>
         </div>
       )}
+
       {hasItems && !uber && (
-        <div className="card stack">
-          <b>Customer pays</b>
+        <div className="card stack step-card">
+          <b>② Payment received – how did they pay?</b>
           <div className="seg" role="group" aria-label="Payment method">
             {PAYMENT_METHODS.map((p) => (
-              <button key={p} type="button" className={pay === p ? "on" : ""} aria-pressed={pay === p} onClick={() => { setPay(p); setConfirming(false); }}>{p}</button>
+              <button key={p} type="button" className={pay === p ? "on" : ""} aria-pressed={pay === p} onClick={() => setPay(p)}>{p}</button>
             ))}
           </div>
-          {changed && <div className="small muted">Apply the bill discount first.</div>}
-          {!confirming ? (
-            <button type="button" className="primary" disabled={changed} onClick={() => setConfirming(true)}>Review payment · {rs(total)}</button>
-          ) : (
-            <div className="stack">
-              <div className="spread"><span>Total to pay</span><b style={{ fontSize: "1.3rem" }}>{rs(total)}</b></div>
-              <div className="spread"><span>Paid by</span><b>{pay}</b></div>
-              <div className="row">
-                <button type="button" onClick={() => setConfirming(false)} style={{ flex: 1 }}>Back</button>
-                <button type="button" className="primary" disabled={pending} style={{ flex: 2 }}
-                  onClick={() => call(() => payBill(orderId, pay, undefined, offerOn ? offer : ""), (r) => {
-                    if (r.receipt && wantsPrint()) printReceipt(r.receipt, receiptSettings);
-                    router.push("/bills");
-                  })}>
-                  {pending ? "Saving…" : `✓ Paid ${rs(total)} · ${pay}`}
-                </button>
-              </div>
-            </div>
-          )}
+          <button type="button" className="primary" disabled={pending || !pay || changedSincePrint}
+            onClick={() => pay && call(() => payBill(orderId, pay), (r) => {
+              if (r.receipt && printPaid) printReceipt(r.receipt, receiptSettings);
+              router.push("/bills");
+            })}>
+            {pending ? "Saving…" : notPrinted || (pay ? `✓ Paid ${rs(total)} · ${pay} – done` : "Tap Cash, Card or Bank transfer")}
+          </button>
+          <label className="row small"><input type="checkbox" checked={printPaid} onChange={(e) => setPrintPaid(e.target.checked)} /> Also print a paid receipt</label>
         </div>
       )}
       {ui}

@@ -111,6 +111,7 @@ Written automatically whenever a partner changes an item's cost or price.
 | line_cost | qty × unit_cost |
 | payment_method | Cash / Card / Bank transfer (Uber orders: Uber) |
 | invoice_no | Cafe orders: `YYMMDD_NNN`, numbered per day from **021** (e.g. `261118_021`, `261118_022`). Uber orders: the Uber invoice number, typed in (required to complete). Printed on the receipt and shown in Sales and reports |
+| printed_at | When the bill was printed for the table (open bills: waiting for payment) |
 | status, void_by, void_reason | Open (bill not paid yet) / Paid / Void, and for voids who authorised it and why |
 | order_type, table_no | Dine-in (with a table like "Garden 2") / Take-away / Uber |
 | notes | Free text |
@@ -219,7 +220,7 @@ tests/                      unit tests (profit, cash, daily, validation, CSV)
 ```bash
 npm test
 ```
-168 tests cover the profit formulas, fixed-cost allocation (monthly, closed months, one-time full or spread), planned vs actual, partner split and rounding, YTD, cash and bank balances, transfers, the low-cash warning, the daily view, to-do urgency, validation, CSV escaping, the Supabase store and schema, passwords and the Users list, and MO Villa (nights, commission and payout, splitting stays across months, double booking, monthly villa profit, occupancy, per-room profit, cash and combined profit).
+171 tests cover the profit formulas, fixed-cost allocation (monthly, closed months, one-time full or spread), planned vs actual, partner split and rounding, YTD, cash and bank balances, transfers, the low-cash warning, the daily view, to-do urgency, validation, CSV escaping, the Supabase store and schema, passwords and the Users list, and MO Villa (nights, commission and payout, splitting stays across months, double booking, monthly villa profit, occupancy, per-room profit, cash and combined profit).
 
 ---
 
@@ -378,7 +379,23 @@ discount**, **TOTAL**, **You saved** and the offer. The bill discount is stored 
 Order line columns: `item_note`, `addons` (JSON), `addons_total`, `discount_type`, `discount_value`, `discount_amount`,
 `offer_text`. `line_total` = qty × unit_price − item discount + add-ons.
 
-## 16. Public menu card
+## 16. Bill at the table, and MO Activity Logs
+
+**Paying at the table** (bill page of an open bill):
+1. **① Bill for the table** – set the bill discount and next-day offer, then **🖨 Print bill**. This saves them first,
+   so the paper bill shows everything, and marks the bill *printed · waiting for payment* (also on Open bills).
+2. **② Payment received** – after the customer paid, tap **Cash / Card / Bank transfer** (nothing is pre-selected) and
+   **✓ Paid – done**. If the discount or offer was changed after printing, it asks to print again first. A second,
+   "paid" receipt is optional. Uber bills are completed with the Uber invoice no. instead.
+
+**More → MO Activity Logs** (partners only): one line per action – order opened, items added, bill printed, paid,
+item voided, discount, daily / fixed cost, cash movement, menu change, to-do, booking, payout, villa cost, capital,
+settings and users – with time, who did it and the details. Filters at the top: business, category, from / to (quick
+Today / 7 days / 30 days) and search. **Janith (and any partner who is not the owner) sees ☕ MO Cafe lines only**;
+🏡 MO Villa and 🔒 Admin (settings, users, bank-only and shared money) are for the owner. Table `activity_log`:
+`log_id, at, business, category, action, detail, ref, by_name`. Logging never blocks the action itself.
+
+## 17. Public menu card
 
 **/menu** is the menu for guests: share the link or put it in a QR code. No sign-in needed. Tabs: **Beverage**, **Brunch**,
 **All Day** (from the menu categories; any other category gets its own tab). Only active items are shown, with name,

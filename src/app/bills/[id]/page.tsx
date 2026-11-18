@@ -87,7 +87,7 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
       </div>
 
       {open ? (
-        <BillActions defaultOffer={settings.next_day_offer} offerText={bill.lines.find((l) => l.offer_text)?.offer_text ?? ""}
+        <BillActions printedAt={bill.printed_at} defaultOffer={settings.next_day_offer} offerText={bill.lines.find((l) => l.offer_text)?.offer_text ?? ""}
           subtotal={bill.subtotal} discountType={bill.discount?.discount_type ?? ""} discountValue={bill.discount?.discount_value ?? 0} orderId={bill.order_id} uber={bill.order_type === "Uber"} invoiceNo={bill.invoice_no} total={bill.total} receipt={receipt} receiptSettings={receiptSettings} authorisers={authorisers} hasItems={bill.lines.length > 0} />
       ) : (
         <div className="row">

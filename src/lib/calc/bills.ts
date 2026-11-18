@@ -23,6 +23,8 @@ export interface Bill {
   items: number;
   notes: string;
   invoice_no: string;
+  /** When the bill was printed for the table ("" = not yet). */
+  printed_at: string;
 }
 
 /** First invoice number of each day (261118_021, 261118_022, …). */
@@ -65,6 +67,7 @@ export function groupBills(lines: OrderLine[]): Bill[] {
         items: sum(items, (l) => l.qty),
         notes: ls.find((l) => l.notes)?.notes ?? "",
         invoice_no: ls.find((l) => l.invoice_no)?.invoice_no ?? "",
+        printed_at: live.find((l) => l.printed_at)?.printed_at ?? "",
       };
     })
     .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));

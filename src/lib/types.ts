@@ -130,6 +130,27 @@ export interface OrderLine {
   discount_amount: number;
   /** Next-day offer printed at the bottom of the invoice ("" = none). */
   offer_text: string;
+  /** When the bill was printed for the table ("YYYY-MM-DD HH:mm"; "" = not yet). */
+  printed_at: string;
+}
+
+/** Who can see a log line: MO Cafe (all partners), MO Villa and Admin (owner only). */
+export type LogBusiness = "MO Cafe" | "MO Villa" | "Admin";
+export const LOG_BUSINESSES: LogBusiness[] = ["MO Cafe", "MO Villa", "Admin"];
+
+/** One line in MO Activity Logs: what was done, not every step. */
+export interface ActivityLog {
+  log_id: string;
+  /** "YYYY-MM-DD HH:mm" in the cafe's timezone. */
+  at: string;
+  business: LogBusiness;
+  /** Order, Bill, Payment, Void, Discount, Daily cost, Fixed cost, Cash, Menu, To-do, Booking, Villa cost, Capital, Settings, Users. */
+  category: string;
+  action: string;
+  detail: string;
+  /** Id of the order / booking / cost it is about. */
+  ref: string;
+  by_name: string;
 }
 
 export interface DailyCost {

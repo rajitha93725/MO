@@ -2,14 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { repo, newId } from "@/lib/data/repo";
-import { requireAction, type AppUser } from "@/lib/auth";
+import { currentUser, requireAction, type AppUser } from "@/lib/auth";
 import { V, ValidationError } from "@/lib/validate";
 import { today, nowTime } from "@/lib/today";
 import { parsePartners, parseSettings } from "@/lib/settings";
 import {
   ORDER_TYPES, VOID_REASONS, orderTypeOf, ACCOUNTS, CAFE_ACCOUNTS, VILLA_ACCOUNTS, CAFE_MOVEMENT_TYPES, TRANSFERS, movementAccounts, ALL_ROOMS, BOOKING_STATUSES, CAPITAL_BUSINESSES, CAPITAL_PAID_INTO, MEALS, MOVED_BY, MOVEMENT_TYPES, PAID_BY,
   PAYMENT_METHODS, PAYOUT_STATUSES, type OrderChannel, PRIORITIES, type CapitalContribution,
-  isVillaTodo, type DailyCost, type FixedCost, type FixedPayment, type MenuItem, type OrderLine, type TargetPeriod, type Todo, type VillaRecord,
+  isVillaTodo, type ActivityLog, type CashMovement, type LogBusiness, type DailyCost, type FixedCost, type FixedPayment, type MenuItem, type OrderLine, type TargetPeriod, type Todo, type VillaRecord,
 } from "@/lib/types";
 import { commissionFor, findOverlaps, netPayoutFor, nightsBetween } from "@/lib/calc/villa";
 import { receiptFromLines, type ReceiptOrder } from "@/lib/receipt";
@@ -24,6 +24,25 @@ import { UBER_COST_CATEGORY, uberCommission, uberCostId, uberPrice } from "@/lib
 export type ActionResult =
   | { ok: true; message?: string; id?: string; receipt?: ReceiptOrder; ticket?: PrintKind }
   | { ok: false; errors: string[] };
+
+/**
+ * One line in MO Activity Logs (action level, not every step). Never stops the action itself if logging fails.
+ * business: MO Cafe (all partners see it), MO Villa / Admin (owner only).
+ */
+async function log(business: LogBusiness, category: string, action: string, detail = "", ref = "") {
+  try {
+    const [user, settings] = await Promise.all([currentUser(), repo.settings()]);
+    const row: ActivityLog = {
+      log_id: newId("LOG"), at: `${today(settings)} ${nowTime(settings)}`, business, category, action,
+      detail: detail.slice(0, 300), ref, by_name: user?.name || user?.email || "",
+    };
+    await repo.insert("logs", [row]);
+  } catch {
+    // logging must never block the work
+  }
+}
+const money = (n: number) => `Rs ${Math.round(n).toLocaleString("en-US")}`;
+const billWhere = (b: { order_type: string; table_no: string }) => (b.order_type === "Dine-in" ? b.table_no || "Dine-in" : b.order_type || "Order");
 
 /** What to print after an order action: the customer receipt or a kitchen ticket. */
 export type PrintKind = "receipt" | "kitchen" | "kitchen-addon";
@@ -189,7 +208,7 @@ export async function saveOrder(input: OrderInput): Promise<ActionResult> {
         payment_method: payment_method as OrderLine["payment_method"], notes: (input.notes ?? "").trim(), entered_by: user.email,
         order_type: order_type as OrderLine["order_type"], table_no, status: open ? "Open" : "Paid", void_by: "", void_reason: "", invoice_no,
         item_note: String(l.note ?? "").trim().slice(0, 200), addons: addons.length ? JSON.stringify(addons) : "", addons_total: lp.addons,
-        discount_type: dtype, discount_value: dval, discount_amount: lp.discount, offer_text,
+        discount_type: dtype, discount_value: dval, discount_amount: lp.discount, offer_text, printed_at: "",
       };
     });
     if (billDisc) {
@@ -216,6 +235,7 @@ export async function saveOrder(input: OrderInput): Promise<ActionResult> {
     if (open) {
       // Kitchen ticket with just these items.
       const receipt = receiptFor(rows, menu, { status: "Open" });
+      await log("MO Cafe", "Order", bill ? "Items added" : "Order opened (kitchen)", `${where} · ${invoice_no || "no invoice yet"} · ${rows.filter((r) => r.item_id !== BILL_DISCOUNT_ID).map((r) => `${r.qty}× ${r.item_name}`).join(", ")} · ${fmt(total)}`, order_id);
       return bill
         ? { message: `Added to ${where} · ${fmt(total)} more`, id: order_id, receipt, ticket: "kitchen-addon" }
         : { message: `Open bill · ${where} · sent to kitchen`, id: order_id, receipt, ticket: "kitchen" };
@@ -224,8 +244,10 @@ export async function saveOrder(input: OrderInput): Promise<ActionResult> {
     const receipt = receiptFor(rows, menu);
     if (uber) {
       const commission = await recordUberCommission(order_id, date, meal, total, invoice_no, user.email);
+      await log("MO Cafe", "Payment", "Uber order completed", `Uber · ${invoice_no} · ${fmt(total)} · commission ${fmt(commission)}`, order_id);
       return { message: `Uber order saved · ${fmt(total)} · commission ${fmt(commission)} recorded`, id: order_id, receipt, ticket: "receipt" };
     }
+    await log("MO Cafe", "Payment", "Order paid", `${where} · ${invoice_no} · ${fmt(total)} · ${payment_method}`, order_id);
     return { message: `Order saved · ${invoice_no} · ${fmt(total)}`, id: order_id, receipt, ticket: "receipt" };
   });
 }
@@ -267,17 +289,46 @@ export async function payBill(order_id: string, payment_method: string, invoice_
       v.check(!all.some((l) => l.order_id !== order_id && l.invoice_no === inv && l.status !== "Void"), `Uber invoice ${inv} is already saved`);
     }
     v.done();
-    const offer = (offer_text ?? "").trim().slice(0, 200);
     const live = liveLines(bill);
+    const offer = offer_text === undefined ? live.find((l) => l.offer_text)?.offer_text ?? "" : offer_text.trim().slice(0, 200);
     for (const l of live) await repo.update("orders", l.line_id, { status: "Paid", payment_method: method, invoice_no: inv, offer_text: offer });
     const menu = await repo.menu();
     const paid = live.map((l) => ({ ...l, status: "Paid" as const, payment_method: method as OrderLine["payment_method"], invoice_no: inv, offer_text: offer }));
     const fmt = (n: number) => `Rs ${n.toLocaleString("en-US")}`;
     if (uber) {
       const commission = await recordUberCommission(order_id, bill.date, bill.lines[0]?.meal ?? "", bill.total, inv, user.email);
+      await log("MO Cafe", "Payment", "Uber order completed", `Uber · ${inv} · ${fmt(bill.total)} · commission ${fmt(commission)}`, order_id);
       return { message: `Uber order completed · ${inv} · commission ${fmt(commission)} recorded`, id: order_id, receipt: receiptFor(paid, menu), ticket: "receipt" };
     }
+    await log("MO Cafe", "Payment", "Bill paid", `${billWhere(bill)} · ${inv} · ${fmt(bill.total)} · ${method}`, order_id);
     return { message: `Paid · ${fmt(bill.total)} · ${method}`, id: order_id, receipt: receiptFor(paid, menu), ticket: "receipt" };
+  });
+}
+
+/**
+ * Print the bill for the table, before payment: saves the bill discount and the next-day offer first, so the paper
+ * bill has everything, and records when it was printed ("waiting for payment").
+ */
+export async function printBill(order_id: string, discount: { type: string; value: number } | null, offer_text: string): Promise<ActionResult> {
+  return run(async () => {
+    const user = await requireAction("any");
+    const settings = await repo.settings();
+    let bill = groupBills((await repo.orderLines()).filter((l) => l.order_id === order_id))[0];
+    if (!bill || bill.status !== "Open") throw new Error("This bill is not open (already paid or voided).");
+    if (discount) {
+      const t = discount.type === "%" || discount.type === "Rs" ? discount.type : "";
+      const prob = discountProblem(bill.subtotal, t, Number(discount.value) || 0, "Bill discount");
+      if (prob) throw new ValidationError([prob]);
+      await syncBillDiscount(order_id, { type: t, value: Number(discount.value) || 0 }, user.email);
+    }
+    const offer = (offer_text ?? "").trim().slice(0, 200);
+    const at = `${today(settings)} ${nowTime(settings)}`;
+    bill = groupBills((await repo.orderLines()).filter((l) => l.order_id === order_id))[0];
+    for (const l of liveLines(bill)) await repo.update("orders", l.line_id, { offer_text: offer, printed_at: at });
+    const menu = await repo.menu();
+    const lines = liveLines(bill).map((l) => ({ ...l, offer_text: offer, printed_at: at }));
+    await log("MO Cafe", "Bill", "Bill printed", `${billWhere(bill)} · ${bill.invoice_no} · ${money(bill.total)}${bill.discount ? ` · ${bill.discount.item_name}` : ""}`, order_id);
+    return { message: `Bill printed · ${money(bill.total)} – waiting for payment`, id: order_id, receipt: receiptFor(lines, menu, { status: "Open" }), ticket: "receipt" };
   });
 }
 
@@ -291,6 +342,7 @@ export async function setBillDiscount(order_id: string, type: string, value: num
     const prob = discountProblem(bill.subtotal, t, Number(value) || 0, "Bill discount");
     if (prob) throw new ValidationError([prob]);
     await syncBillDiscount(order_id, { type: t, value: Number(value) || 0 }, user.email);
+    await log("MO Cafe", "Discount", t ? "Bill discount set" : "Bill discount removed", `${billWhere(bill)} · ${bill.invoice_no} · ${t ? discountLabel(t, value) : ""}`, order_id);
     return t ? `Bill discount ${discountLabel(t, value)} added` : "Bill discount removed";
   });
 }
@@ -347,6 +399,8 @@ export async function voidItems(input: VoidInput): Promise<ActionResult> {
       }
     }
     if (input.line_id) await syncBillDiscount(bill.order_id);
+    await log("MO Cafe", "Void", input.line_id ? "Item voided" : "Whole bill voided",
+      `${billWhere(bill)} · ${bill.invoice_no} · ${targets.map((t) => t.item_name).join(", ")} · ${why} · authorised by ${auth.name}`, bill.order_id);
     return input.line_id ? `Voided · authorised by ${auth.name}` : `Whole bill voided · authorised by ${auth.name}`;
   });
 }
@@ -356,6 +410,8 @@ export async function deleteOrder(order_id: string): Promise<ActionResult> {
     await requireAction("partner");
     const lines = (await repo.orderLines()).filter((o) => o.order_id === order_id);
     for (const l of lines) await repo.remove("orders", l.line_id);
+    const inv = lines.find((l) => l.invoice_no)?.invoice_no ?? "";
+    await log("MO Cafe", "Order", "Order deleted", `${inv || order_id} · ${money(lines.filter((l) => l.status !== "Void").reduce((t, l) => t + l.line_total, 0))}`, order_id);
     // An Uber order's commission goes with it.
     if (lines.some((l) => l.payment_method === "Uber")) {
       const cid = uberCostId(order_id);
@@ -387,9 +443,11 @@ export async function saveDailyCost(form: Record<string, string>): Promise<Actio
     if (form.cost_id) {
       await requireAction("partner"); // only partners edit existing entries
       await repo.update("dailyCosts", form.cost_id, row);
+      await log("MO Cafe", "Daily cost", "Cost updated", `${row.date} · ${row.category} · ${row.description} · ${money(row.amount)} · ${row.paid_from}`, row.cost_id);
       return "Cost updated";
     }
     await repo.insert("dailyCosts", [row]);
+    await log("MO Cafe", "Daily cost", "Cost added", `${row.date} · ${row.category} · ${row.description} · ${money(row.amount)} · ${row.paid_from}`, row.cost_id);
     return "Cost saved";
   });
 }
@@ -397,7 +455,9 @@ export async function saveDailyCost(form: Record<string, string>): Promise<Actio
 export async function deleteDailyCost(id: string): Promise<ActionResult> {
   return run(async () => {
     await requireAction("partner");
+    const c = (await repo.dailyCosts()).find((x) => x.cost_id === id);
     await repo.remove("dailyCosts", id);
+    await log("MO Cafe", "Daily cost", "Cost deleted", c ? `${c.date} · ${c.category} · ${c.description} · ${money(c.amount)}` : id, id);
     return "Cost deleted";
   });
 }
@@ -431,12 +491,14 @@ export async function saveMenuItem(form: Record<string, string>): Promise<Action
         }]);
       }
       await repo.update("menu", item.item_id, item);
+      await log("MO Cafe", "Menu", "Item updated", `${item.item_id} · ${item.item_name} · price ${money(item.selling_price)} · cost ${money(item.unit_cost)}`, item.item_id);
       return "Item updated";
     }
     const prefix = settings.menu_categories.find((c) => c.name === item.category)!.prefix;
     const max = menu.filter((m) => m.item_id.startsWith(prefix)).map((m) => Number(m.item_id.slice(1)) || 0).reduce((a, b) => Math.max(a, b), 0);
     item.item_id = `${prefix}${String(max + 1).padStart(2, "0")}`;
     await repo.insert("menu", [item]);
+    await log("MO Cafe", "Menu", "Item added", `${item.item_id} · ${item.item_name} · ${item.category} · ${money(item.selling_price)}`, item.item_id);
     return "Item added";
   });
 }
@@ -445,6 +507,7 @@ export async function setMenuActive(item_id: string, active: boolean): Promise<A
   return run(async () => {
     await requireAction("partner");
     await repo.update("menu", item_id, { active });
+    await log("MO Cafe", "Menu", active ? "Item activated" : "Item deactivated", (await repo.menu()).find((m) => m.item_id === item_id)?.item_name ?? item_id, item_id);
     return active ? "Item activated" : "Item deactivated";
   });
 }
@@ -471,6 +534,7 @@ export async function saveFixedCost(form: Record<string, string>): Promise<Actio
     v.done();
     if (form.fixed_id) await repo.update("fixedCosts", form.fixed_id, row);
     else await repo.insert("fixedCosts", [row]);
+    await log("MO Cafe", "Fixed cost", form.fixed_id ? "Fixed cost updated" : "Fixed cost added", `${row.name} · ${money(row.amount)} · ${row.frequency}`, row.fixed_id);
     return "Fixed cost saved";
   });
 }
@@ -479,6 +543,7 @@ export async function deleteFixedCost(id: string): Promise<ActionResult> {
   return run(async () => {
     await requireAction("partner");
     await repo.remove("fixedCosts", id);
+    await log("MO Cafe", "Fixed cost", "Fixed cost deleted", id, id);
     return "Fixed cost deleted";
   });
 }
@@ -498,6 +563,7 @@ export async function recordFixedPayment(form: Record<string, string>): Promise<
     };
     v.done();
     await repo.insert("fixedPayments", [row]);
+    await log("MO Cafe", "Fixed cost", "Fixed cost paid", `${(await repo.fixedCosts()).find((f) => f.fixed_id === row.fixed_id)?.name ?? row.fixed_id} · ${row.month} · ${money(row.amount)} · ${row.paid_from}`, row.payment_id);
     return "Payment recorded";
   });
 }
@@ -507,6 +573,7 @@ export async function undoFixedPayment(fixed_id: string, month: string): Promise
     await requireAction("partner");
     const pays = (await repo.fixedPayments()).filter((p) => p.fixed_id === fixed_id && p.month === month);
     for (const p of pays) await repo.remove("fixedPayments", p.payment_id);
+    await log("MO Cafe", "Fixed cost", "Fixed cost marked not paid", `${fixed_id} · ${month}`, fixed_id);
     return "Marked as not paid";
   });
 }
@@ -530,6 +597,11 @@ export async function saveMovement(form: Record<string, string>): Promise<Action
     };
     v.done();
     await repo.insert("cash", [row]);
+    {
+      const accts = movementAccounts(row as CashMovement);
+      const biz: LogBusiness = accts.includes("Villa petty cash") ? "MO Villa" : accts.every((a) => a === "Petty cash") || (accts.includes("Petty cash") && CAFE_MOVEMENT_TYPES.includes(row.type)) ? "MO Cafe" : "Admin";
+      await log(biz, "Cash", `Cash: ${row.type}`, `${row.date} · ${accts.join(" → ")} · ${money(row.amount)} · by ${row.moved_by}${row.notes ? ` · ${row.notes}` : ""}`, row.movement_id);
+    }
     return "Movement saved";
   });
 }
@@ -542,7 +614,13 @@ export async function deleteMovement(id: string): Promise<ActionResult> {
       if (!m) throw new Error("Movement not found.");
       if (!movementAccounts(m).includes("Petty cash") || !CAFE_MOVEMENT_TYPES.includes(m.type)) throw new Error("Only the owner can delete this movement.");
     }
+    const gone = (await repo.movements()).find((x) => x.movement_id === id);
     await repo.remove("cash", id);
+    if (gone) {
+      const accts = movementAccounts(gone);
+      await log(accts.includes("Villa petty cash") ? "MO Villa" : accts.includes("Petty cash") && CAFE_MOVEMENT_TYPES.includes(gone.type) ? "MO Cafe" : "Admin",
+        "Cash", "Cash movement deleted", `${gone.date} · ${gone.type} · ${money(gone.amount)}`, id);
+    }
     return "Movement deleted";
   });
 }
@@ -579,6 +657,7 @@ export async function saveTodo(form: Record<string, string>): Promise<ActionResu
     if (form.task_id)
       await repo.update("todo", form.task_id, { task: row.task, owner: row.owner, due_date: row.due_date, priority: row.priority, booking_id: row.booking_id, villa: row.villa });
     else await repo.insert("todo", [row]);
+    await log(isVillaTodo(row) ? "MO Villa" : "MO Cafe", "To-do", form.task_id ? "Task updated" : "Task added", `${row.task}${row.due_date ? ` · due ${row.due_date}` : ""}`, row.task_id);
     return "Task saved";
   });
 }
@@ -589,6 +668,10 @@ export async function setTodoDone(task_id: string, done: boolean): Promise<Actio
     await assertTodoAccess(user, task_id);
     const settings = await repo.settings();
     await repo.update("todo", task_id, { done, done_date: done ? today(settings) : "" });
+    {
+      const td = (await repo.todos()).find((x) => x.task_id === task_id);
+      if (td) await log(isVillaTodo(td) ? "MO Villa" : "MO Cafe", "To-do", done ? "Task done" : "Task reopened", td.task, task_id);
+    }
     return done ? "Done" : "Task reopened";
   });
 }
@@ -624,6 +707,7 @@ export async function saveSettings(values: Record<string, string>): Promise<Acti
     v.check(parsed.villa_rooms.every((r) => r.base_price >= 0), "Room base price cannot be negative");
     v.done();
     await repo.replaceAll("settings", rows);
+    await log("Admin", "Settings", "Settings saved", "", "settings");
     return "Settings saved";
   });
 }
@@ -648,6 +732,7 @@ export async function saveTargets(rows: Record<string, string>[]): Promise<Actio
     });
     v.done();
     await repo.replaceAll("targets", out);
+    await log("Admin", "Settings", "Targets saved", `${out.length} period(s)`, "targets");
     return "Targets saved";
   });
 }
@@ -661,6 +746,7 @@ export async function saveUsers(rows: UserForm[]): Promise<ActionResult> {
     v.check(me.email === "demo@local" || users.some((u) => u.email === me.email && u.role === "partner"), "You cannot remove your own partner access");
     v.done();
     await repo.replaceAll("users", users as unknown as Record<string, string>[]);
+    await log("Admin", "Users", "Users saved", users.map((u) => `${u.name} (${u.role})`).join(", "), "users");
     return "Users saved";
   });
 }
@@ -735,6 +821,7 @@ export async function saveBooking(form: Record<string, string>): Promise<ActionR
     };
     if (existing) await repo.update("villa", record_id, row);
     else await repo.insert("villa", [row]);
+    await log("MO Villa", "Booking", existing ? "Booking updated" : "Booking added", `${row.room_number} · ${row.guest_name || row.platform} · ${row.check_in} → ${row.check_out} · ${row.status} · ${money(row.total_price)}`, record_id);
     return existing ? "Booking updated" : "Booking saved";
   });
 }
@@ -747,6 +834,10 @@ export async function markPayoutReceived(record_id: string, received_to: string,
     const date = v.date("Payout date", payout_date);
     v.done();
     await repo.update("villa", record_id, { payout_status: "Received", received_to: to, payout_date: date });
+    {
+      const b = (await repo.villa()).find((r) => r.record_id === record_id);
+      await log("MO Villa", "Booking", "Payout received", `${b ? `${b.room_number} · ${b.guest_name || b.platform} · ${money(b.net_payout)}` : record_id} · to ${to} · ${date}`, record_id);
+    }
     return "Payout marked received";
   });
 }
@@ -772,6 +863,7 @@ export async function saveVillaCost(form: Record<string, string>): Promise<Actio
     v.done();
     if (form.record_id) await repo.update("villa", form.record_id, row);
     else await repo.insert("villa", [row]);
+    await log("MO Villa", "Villa cost", form.record_id ? "Villa cost updated" : "Villa cost added", `${row.date_entered} · ${row.cost_category} · ${row.cost_description} · ${money(row.cost_amount)} · ${row.paid_from}`, row.record_id);
     return form.record_id ? "Cost updated" : "Villa cost saved";
   });
 }
@@ -779,7 +871,10 @@ export async function saveVillaCost(form: Record<string, string>): Promise<Actio
 export async function deleteVillaRecord(record_id: string): Promise<ActionResult> {
   return run(async () => {
     await requireAction("owner");
+    const vr = (await repo.villa()).find((r) => r.record_id === record_id);
     await repo.remove("villa", record_id);
+    await log("MO Villa", vr?.record_type === "Cost" ? "Villa cost" : "Booking", vr?.record_type === "Cost" ? "Villa cost deleted" : "Booking deleted",
+      vr ? (vr.record_type === "Cost" ? `${vr.cost_category} · ${money(vr.cost_amount)}` : `${vr.room_number} · ${vr.guest_name || vr.platform} · ${vr.check_in}`) : record_id, record_id);
     return "Deleted";
   });
 }
@@ -814,6 +909,8 @@ export async function saveCapital(form: Record<string, string>): Promise<ActionR
     v.done();
     if (form.capital_id) await repo.update("capital", form.capital_id, row);
     else await repo.insert("capital", [row]);
+    await log(row.business === "MO Cafe" ? "MO Cafe" : row.business === "MO Villa" ? "MO Villa" : "Admin", "Capital", form.capital_id ? "Capital updated" : "Capital added",
+      `${row.partner} · ${row.business} · ${row.description} · ${money(row.amount)}`, row.capital_id);
     return form.capital_id ? "Contribution updated" : "Contribution saved";
   });
 }
@@ -822,7 +919,9 @@ export async function deleteCapital(id: string): Promise<ActionResult> {
   return run(async () => {
     const user = await requireAction("partner");
     await assertCapitalAccess(user, id);
+    const cap = (await repo.capital()).find((c) => c.capital_id === id);
     await repo.remove("capital", id);
+    await log(cap?.business === "MO Cafe" ? "MO Cafe" : cap?.business === "MO Villa" ? "MO Villa" : "Admin", "Capital", "Capital deleted", cap ? `${cap.partner} · ${cap.description} · ${money(cap.amount)}` : id, id);
     return "Contribution deleted";
   });
 }

@@ -15,6 +15,7 @@ export const TABS = {
   users: "Users",
   villa: "MO_Villa",
   capital: "Capital",
+  logs: "Activity_Log",
 } as const;
 
 export type TabKey = keyof typeof TABS;
@@ -25,7 +26,7 @@ export const HEADERS: Record<TabKey, string[]> = {
   orders: [
     "order_id", "date", "time", "meal", "item_id", "item_name", "qty", "unit_price", "line_total",
     "unit_cost", "line_cost", "payment_method", "notes", "line_id", "entered_by", "order_type", "table_no", "status", "void_by", "void_reason", "invoice_no",
-    "item_note", "addons", "addons_total", "discount_type", "discount_value", "discount_amount", "offer_text",
+    "item_note", "addons", "addons_total", "discount_type", "discount_value", "discount_amount", "offer_text", "printed_at",
   ],
   dailyCosts: ["cost_id", "date", "category", "description", "amount", "paid_from", "paid_by", "notes", "entered_by"],
   fixedCosts: ["fixed_id", "name", "amount", "frequency", "start_month", "end_month", "month_paid", "paid_from", "notes"],
@@ -48,6 +49,7 @@ export const HEADERS: Record<TabKey, string[]> = {
     "notes",
   ],
   capital: ["capital_id", "date", "partner", "business", "description", "amount", "paid_into", "notes"],
+  logs: ["log_id", "at", "business", "category", "action", "detail", "ref", "by_name"],
 };
 
 /** Primary-key column per tab (first column is used when not listed). */
@@ -65,6 +67,7 @@ export const ID_COLUMN: Record<TabKey, string> = {
   users: "email",
   villa: "record_id",
   capital: "capital_id",
+  logs: "log_id",
 };
 
 export const NUMBER_COLUMNS = new Set([

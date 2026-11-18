@@ -2,7 +2,7 @@ import "server-only";
 import { getStore } from "./index";
 import type { Row } from "./store";
 import type {
-  CashMovement, DailyCost, FixedCost, FixedPayment, MenuItem, OrderLine, PriceHistory, Settings, SettingRow, TargetPeriod, Todo, UserRow, VillaRecord, CapitalContribution,
+  CashMovement, DailyCost, FixedCost, FixedPayment, MenuItem, OrderLine, PriceHistory, Settings, SettingRow, TargetPeriod, Todo, UserRow, VillaRecord, CapitalContribution, ActivityLog,
 } from "../types";
 import { parseSettings } from "../settings";
 import { isPaidLine } from "../types";
@@ -38,6 +38,7 @@ export const repo = {
   // "Petty cash", which for the villa means its own box.
   villa: async () => as<VillaRecord>(await getStore().list("villa")).map(villaRowAccounts),
   capital: async () => as<CapitalContribution>(await getStore().list("capital")),
+  logs: async () => as<ActivityLog>(await getStore().list("logs")),
 
   async settings(): Promise<Settings> {
     const [rows, targets] = await Promise.all([this.settingRows(), this.targets()]);
