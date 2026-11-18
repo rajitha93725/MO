@@ -4,6 +4,7 @@ import type { Account, CashMovement, DailyCost, MenuItem, MonthKey, OrderLine, P
 import { ACCOUNTS, CAFE_ACCOUNTS, ALL_PAYMENT_METHODS, MEALS, ORDER_TYPES, orderTypeOf } from "../types";
 import { addDays, addMonths, daysInMonth, monthOf } from "./dates";
 import { ratio, sum } from "./money";
+import { isDiscountLine } from "./pricing";
 import { daySummary } from "./daily";
 import { monthProfit, type MonthProfit, type ProfitInputs } from "./profit";
 import { fixedCostsForMonth, type FixedMonthLine } from "./fixedCosts";
@@ -51,6 +52,8 @@ export interface CafeReport {
   previous: MonthProfit;
   orders: number;
   itemsSold: number;
+  /** Item discounts and bill discounts given (Rs), and add-on sales included in the totals. */
+  discounts: { items: number; bills: number; addons: number };
   avgOrderValue: number | null;
   tradingDays: number; // days with at least one sale
   bestDay: { date: string; sales: number } | null;
@@ -137,6 +140,7 @@ export function cafeReport(month: MonthKey, input: ProfitInputs, menu: MenuItem[
   const categoryOf = new Map(menu.map((m) => [m.item_id, m.category || "-"]));
   const itemMap = new Map<string, ItemRow>();
   for (const l of lines) {
+    if (isDiscountLine(l)) continue; // the bill discount is not an item
     const r = itemMap.get(l.item_id) ?? { item_id: l.item_id, item_name: l.item_name, category: categoryOf.get(l.item_id) ?? "-", qty: 0, sales: 0, foodCost: 0, grossProfit: 0, foodCostPct: null };
     r.qty += l.qty;
     r.sales += l.line_total;
@@ -158,7 +162,12 @@ export function cafeReport(month: MonthKey, input: ProfitInputs, menu: MenuItem[
     profit: monthProfit(month, input),
     previous: monthProfit(addMonths(month, -1), input),
     orders: orderList.length,
-    itemsSold: sum(lines, (l) => l.qty),
+    itemsSold: sum(lines.filter((l) => !isDiscountLine(l)), (l) => l.qty),
+    discounts: {
+      items: sum(lines, (l) => (isDiscountLine(l) ? 0 : l.discount_amount ?? 0)),
+      bills: sum(lines.filter(isDiscountLine), (l) => -l.line_total),
+      addons: sum(lines, (l) => l.addons_total ?? 0),
+    },
     avgOrderValue: orderList.length ? Math.round(sales / orderList.length) : null,
     tradingDays: days.filter((d) => d.sales > 0).length,
     bestDay: best,
@@ -167,7 +176,7 @@ export function cafeReport(month: MonthKey, input: ProfitInputs, menu: MenuItem[
     // count = number of orders paid that way
     byPayment: by(orderList, (o) => o.payment_method, (o) => o.total, ALL_PAYMENT_METHODS),
     byOrderType: by(orderList, (o) => o.order_type, (o) => o.total, ORDER_TYPES),
-    byCategory: by(lines, (l) => categoryOf.get(l.item_id) ?? "-", (l) => l.line_total),
+    byCategory: by(lines, (l) => (isDiscountLine(l) ? "Bill discounts" : categoryOf.get(l.item_id) ?? "-"), (l) => l.line_total),
     items,
     orderList,
     costsByCategory: by(costs, (c) => c.category, (c) => c.amount),

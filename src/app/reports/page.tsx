@@ -88,6 +88,9 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     ["Net margin %", p.netMargin === null ? "-" : (p.netMargin * 100).toFixed(1)],
     ["Orders", r.orders],
     ["Items sold", r.itemsSold],
+    ["Item discounts given", r.discounts.items],
+    ["Bill discounts given", r.discounts.bills],
+    ["Add-on (extras) sales", r.discounts.addons],
     ["Average order value", r.avgOrderValue ?? "-"],
     ["Trading days", r.tradingDays],
     ["Planned sales", p.plannedSales],
@@ -141,6 +144,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       <div className="grid cols-4">
         <div className="card stat"><div className="label">Sales <Tip text={FORMULAS.sales} /></div><div className="value">{rs(p.sales)}</div><div className="sub">{change(p.sales, prev.sales)} vs last month</div></div>
         <div className="card stat"><div className="label">Orders</div><div className="value">{r.orders}</div><div className="sub">Avg {r.avgOrderValue === null ? "-" : rs(r.avgOrderValue)} · {r.itemsSold} items</div></div>
+        <div className="card stat"><div className="label">Discounts given</div><div className="value">{rs(r.discounts.items + r.discounts.bills)}</div><div className="sub">Items {rs(r.discounts.items)} · Bills {rs(r.discounts.bills)} · Extras sold {rs(r.discounts.addons)}</div></div>
         <div className="card stat"><div className="label">Total costs <Tip text={FORMULAS.totalCosts} /></div><div className="value">{rs(p.totalCosts)}</div><div className="sub">Daily {num(p.dailyCosts)} + Fixed {num(p.fixedCosts)}</div></div>
         <div className="card stat"><div className="label">Cafe net profit <Tip text={FORMULAS.netProfit} /></div><div className={`value ${p.netProfit < 0 ? "neg" : ""}`}>{rs(p.netProfit)}</div><div className="sub">Margin {p.netMargin === null ? "-" : pct(p.netProfit, p.sales)} · {change(p.netProfit, prev.netProfit)}</div></div>
       </div>

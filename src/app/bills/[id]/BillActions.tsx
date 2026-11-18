@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { payBill, voidItems } from "@/app/actions";
+import { payBill, setBillDiscount, voidItems } from "@/app/actions";
+import { DiscountInput } from "@/app/order/OrderEntry";
+import { discountAmount, discountProblem, type DiscountType } from "@/lib/calc/pricing";
 import { useAction } from "@/components/ui";
 import { printReceipt } from "@/components/printReceipt";
 import { PAYMENT_METHODS, VOID_REASONS, type PaymentMethod } from "@/lib/types";
@@ -20,10 +22,18 @@ const wantsPrint = () => {
 };
 
 /** Add items, print the bill, take payment, or void the whole bill. */
-export function BillActions({ orderId, uber, invoiceNo, total, receipt, receiptSettings, authorisers, hasItems }: {
+export function BillActions({ orderId, uber, invoiceNo, total, receipt, receiptSettings, authorisers, hasItems, subtotal, discountType, discountValue, defaultOffer, offerText }: {
   orderId: string; uber: boolean; invoiceNo: string; total: number; receipt: ReceiptOrder; receiptSettings: ReceiptSettings; authorisers: string[]; hasItems: boolean;
+  subtotal: number; discountType: string; discountValue: number; defaultOffer: string; offerText: string;
 }) {
   const router = useRouter();
+  const [dType, setDType] = useState<DiscountType>((discountType as DiscountType) || "");
+  const [dValue, setDValue] = useState(discountValue);
+  const [offerOn, setOfferOn] = useState(Boolean(offerText));
+  const [offer, setOffer] = useState(offerText || defaultOffer);
+  const disc = useAction();
+  const changed = dType !== (discountType || "") || dValue !== discountValue;
+  const dProblem = discountProblem(subtotal, dType, dValue, "Bill discount");
   const [pay, setPay] = useState<PaymentMethod>("Cash");
   const [inv, setInv] = useState(invoiceNo);
   const [confirming, setConfirming] = useState(false);
@@ -35,6 +45,21 @@ export function BillActions({ orderId, uber, invoiceNo, total, receipt, receiptS
         <button type="button" style={{ flex: 1 }} disabled={!hasItems} onClick={() => printReceipt(receipt, receiptSettings)}>🖨 Print bill</button>
       </div>
 
+      {hasItems && (
+        <div className="card stack">
+          <div className="spread"><b>Bill discount</b>{dType && !dProblem ? <span className="small">−{rs(discountAmount(subtotal, dType, dValue))} of {rs(subtotal)}</span> : null}</div>
+          <DiscountInput type={dType} value={dValue} onChange={(t, v) => { setDType(t); setDValue(v); }} />
+          {dProblem && <div className="errors">{dProblem}</div>}
+          {changed && !dProblem && (
+            <button type="button" disabled={disc.pending} onClick={() => disc.call(() => setBillDiscount(orderId, dType, dValue), () => router.refresh())}>
+              {disc.pending ? "Saving…" : dType ? "Apply bill discount" : "Remove bill discount"}
+            </button>
+          )}
+          {disc.ui}
+          <label className="row small"><input type="checkbox" checked={offerOn} onChange={(e) => setOfferOn(e.target.checked)} /> 🎁 Print a next-day offer on the invoice</label>
+          {offerOn && <input value={offer} onChange={(e) => setOffer(e.target.value)} maxLength={200} placeholder="e.g. Show this bill tomorrow: 10% off breakfast" />}
+        </div>
+      )}
       {hasItems && uber && (
         <div className="card stack">
           <b>🛵 Rider picked it up – complete the Uber order</b>
@@ -42,7 +67,7 @@ export function BillActions({ orderId, uber, invoiceNo, total, receipt, receiptS
             <input value={inv} onChange={(e) => setInv(e.target.value)} placeholder="e.g. 3F2A9" autoCapitalize="characters" spellCheck={false} maxLength={40} />
           </label>
           <button type="button" className="primary" disabled={pending || !inv.trim()}
-            onClick={() => call(() => payBill(orderId, "Uber", inv), (r) => {
+            onClick={() => call(() => payBill(orderId, "Uber", inv, offerOn ? offer : ""), (r) => {
               if (r.receipt && wantsPrint()) printReceipt(r.receipt, receiptSettings);
               router.push("/bills");
             })}>
@@ -59,8 +84,9 @@ export function BillActions({ orderId, uber, invoiceNo, total, receipt, receiptS
               <button key={p} type="button" className={pay === p ? "on" : ""} aria-pressed={pay === p} onClick={() => { setPay(p); setConfirming(false); }}>{p}</button>
             ))}
           </div>
+          {changed && <div className="small muted">Apply the bill discount first.</div>}
           {!confirming ? (
-            <button type="button" className="primary" onClick={() => setConfirming(true)}>Review payment · {rs(total)}</button>
+            <button type="button" className="primary" disabled={changed} onClick={() => setConfirming(true)}>Review payment · {rs(total)}</button>
           ) : (
             <div className="stack">
               <div className="spread"><span>Total to pay</span><b style={{ fontSize: "1.3rem" }}>{rs(total)}</b></div>
@@ -68,7 +94,7 @@ export function BillActions({ orderId, uber, invoiceNo, total, receipt, receiptS
               <div className="row">
                 <button type="button" onClick={() => setConfirming(false)} style={{ flex: 1 }}>Back</button>
                 <button type="button" className="primary" disabled={pending} style={{ flex: 2 }}
-                  onClick={() => call(() => payBill(orderId, pay), (r) => {
+                  onClick={() => call(() => payBill(orderId, pay, undefined, offerOn ? offer : ""), (r) => {
                     if (r.receipt && wantsPrint()) printReceipt(r.receipt, receiptSettings);
                     router.push("/bills");
                   })}>

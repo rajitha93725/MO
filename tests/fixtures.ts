@@ -11,7 +11,7 @@ export function order(p: Partial<OrderLine> & { date: string; qty: number; unit_
   n++;
   return {
     line_id: `L${n}`, order_id: p.order_id ?? `O${n}`, time: "12:00", meal: "Lunch", item_id: "A01", item_name: "Item",
-    payment_method: "Cash", notes: "", entered_by: "t", order_type: "", table_no: "", status: "", void_by: "", void_reason: "", invoice_no: "",
+    payment_method: "Cash", notes: "", entered_by: "t", order_type: "", table_no: "", status: "", void_by: "", void_reason: "", invoice_no: "", item_note: "", addons: "", addons_total: 0, discount_type: "", discount_value: 0, discount_amount: 0, offer_text: "",
     line_total: p.qty * p.unit_price, line_cost: p.qty * p.unit_cost,
     ...p,
   };

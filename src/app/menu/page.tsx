@@ -34,7 +34,8 @@ export default async function PublicMenuPage() {
     name = settings.receipt_name || name;
     address = settings.receipt_address;
     footer = settings.receipt_footer;
-    const cats = Array.from(new Set(menu.filter((m) => m.active).map((m) => m.category)));
+    // Add-ons (Extra cheese, …) are extras on a dish, not dishes: not on the public menu.
+    const cats = Array.from(new Set(menu.filter((m) => m.active).map((m) => m.category))).filter((c) => c.toLowerCase() !== settings.addon_category.toLowerCase());
     const rank = (c: string) => {
       const i = TAB_STYLE.findIndex((t) => t.match.test(c));
       return i < 0 ? TAB_STYLE.length : i;

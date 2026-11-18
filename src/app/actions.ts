@@ -12,12 +12,13 @@ import {
   isVillaTodo, type DailyCost, type FixedCost, type FixedPayment, type MenuItem, type OrderLine, type TargetPeriod, type Todo, type VillaRecord,
 } from "@/lib/types";
 import { commissionFor, findOverlaps, netPayoutFor, nightsBetween } from "@/lib/calc/villa";
-import { receiptItemName, type ReceiptOrder } from "@/lib/receipt";
+import { receiptFromLines, type ReceiptOrder } from "@/lib/receipt";
+import { BILL_DISCOUNT_ID, addonsCost, discountAmount, discountLabel, discountProblem, linePrice, type Addon } from "@/lib/calc/pricing";
 import { mealForTime } from "@/lib/calc/meal";
 import { buildUsers, type UserForm } from "@/lib/users";
 import { capitalAccountAllowed } from "@/lib/calc/capital";
 import { hashPassword, loginLocked, recordLogin, verifyPassword } from "@/lib/password";
-import { groupBills, nextInvoiceNo, nextLineNo } from "@/lib/calc/bills";
+import { groupBills, liveLines, nextInvoiceNo, nextLineNo } from "@/lib/calc/bills";
 import { UBER_COST_CATEGORY, uberCommission, uberCostId, uberPrice } from "@/lib/calc/uber";
 
 export type ActionResult =
@@ -43,6 +44,19 @@ async function run(
 
 // ---------------- Orders (partners + staff) ----------------
 
+/** One item on the order screen, with its options. */
+export interface OrderLineInput {
+  item_id: string;
+  qty: number;
+  /** Kitchen note: allergies, more / less spicy, without onions, … */
+  note?: string;
+  /** Paid add-ons: a menu add-on (item_id) or a typed one (name + price). qty = how many. */
+  addons?: { item_id?: string; name?: string; price?: number; qty?: number }[];
+  /** Item discount on qty × price only (not the add-ons). */
+  discount_type?: string;
+  discount_value?: number;
+}
+
 export interface OrderInput {
   /** "Uber" = Uber order: Uber prices, paid to Bank, commission saved as a daily cost. Default "Cafe". */
   channel?: OrderChannel;
@@ -54,7 +68,11 @@ export interface OrderInput {
   payment_method: string;
   notes?: string;
   date?: string;
-  lines: { item_id: string; qty: number }[];
+  lines: OrderLineInput[];
+  /** Discount on the whole bill (% or Rs, taken from the subtotal). Kept up to date when items are added or voided. */
+  bill_discount?: { type: string; value: number };
+  /** Next-day offer printed at the bottom of the invoice. */
+  offer_text?: string;
   /** true = open bill: send to the kitchen now, pay (or complete, for Uber) later. */
   open?: boolean;
   /** Uber orders: the Uber invoice number (typed in; needed to complete the order). */
@@ -63,19 +81,38 @@ export interface OrderInput {
   bill_id?: string;
 }
 
-/** Receipt data for some order lines (sub-category in front of each name). */
+/** Receipt data for some order lines (sub-category in front of each name; discounts, add-ons and notes under it). */
 function receiptFor(lines: OrderLine[], menu: MenuItem[], extra: Partial<ReceiptOrder> = {}): ReceiptOrder {
-  const o = lines[0];
-  return {
-    order_id: o.order_id, date: o.date, time: o.time, meal: o.meal, payment_method: o.payment_method,
-    notes: lines.find((l) => l.notes)?.notes ?? "", order_type: orderTypeOf(o), table_no: o.table_no,
-    invoice_no: lines.find((l) => l.invoice_no)?.invoice_no ?? "",
-    lines: lines.map((r) => ({
-      item_name: receiptItemName(r.item_name, menu.find((m) => m.item_id === r.item_id)?.sub_category),
-      qty: r.qty, unit_price: r.unit_price, line_total: r.line_total,
-    })),
-    ...extra,
-  };
+  return receiptFromLines(lines, (id) => menu.find((m) => m.item_id === id)?.sub_category, extra);
+}
+
+/**
+ * Keeps an open bill's bill-discount line right after items are added or voided (a % follows the new subtotal;
+ * an Rs amount is capped at the subtotal). type "" removes the bill discount.
+ */
+async function syncBillDiscount(order_id: string, set?: { type: string; value: number }, by = "") {
+  const lines = (await repo.orderLines()).filter((l) => l.order_id === order_id);
+  const bill = groupBills(lines)[0];
+  if (!bill || bill.status !== "Open") return;
+  const cur = bill.discount;
+  const type = (set ? set.type : cur?.discount_type ?? "") as OrderLine["discount_type"];
+  const value = set ? Number(set.value) || 0 : cur?.discount_value ?? 0;
+  const amount = discountAmount(bill.subtotal, type, value);
+  if (!type || !amount) {
+    if (cur) await repo.remove("orders", cur.line_id);
+    return;
+  }
+  const label = `Bill discount ${discountLabel(type, value)}`;
+  const patch = { item_name: label, discount_type: type, discount_value: value, discount_amount: amount, unit_price: -amount, line_total: -amount };
+  if (cur) {
+    if (cur.line_total !== -amount || cur.discount_type !== type || cur.discount_value !== value) await repo.update("orders", cur.line_id, patch);
+    return;
+  }
+  const first = bill.lines[0];
+  await repo.insert("orders", [{
+    ...first, ...patch, line_id: `${order_id}-${nextLineNo(lines, order_id)}`, item_id: BILL_DISCOUNT_ID, qty: 1,
+    unit_cost: 0, line_cost: 0, item_note: "", addons: "", addons_total: 0, offer_text: first.offer_text, entered_by: by || first.entered_by,
+  }]);
 }
 
 export async function saveOrder(input: OrderInput): Promise<ActionResult> {
@@ -95,6 +132,8 @@ export async function saveOrder(input: OrderInput): Promise<ActionResult> {
     const date = bill ? bill.date : v.date("Date", input.date || today(settings));
     v.check(input.lines.length > 0, "Add at least one item");
     input.lines.forEach((l, i) => v.qty(`Quantity (line ${i + 1})`, l.qty));
+    const billDisc = bill ? undefined : input.bill_discount?.type ? { type: input.bill_discount.type, value: Number(input.bill_discount.value) || 0 } : undefined;
+    const offer_text = (input.offer_text ?? "").trim().slice(0, 200);
     // Uber: the Uber invoice number is typed in (needed to complete); cafe orders get the next YYMMDD_NNN.
     const uberInvoice = (input.invoice_no ?? "").trim();
     if (uber && !bill) {
@@ -115,23 +154,62 @@ export async function saveOrder(input: OrderInput): Promise<ActionResult> {
     const meal = bill ? bill.lines[0]?.meal ?? mealForTime(time) : mealForTime(time);
     const firstNo = bill ? nextLineNo(all, order_id) : 1;
     const invoice_no = bill ? bill.invoice_no : uber ? uberInvoice : nextInvoiceNo(date, all);
+    const channelPrice = (p: number) => (uber ? uberPrice(p, settings) : p);
+    const errs: string[] = [];
     const rows: OrderLine[] = input.lines.map((l, i) => {
       const m = menu.find((x) => x.item_id === l.item_id);
       if (!m) throw new ValidationError([`Unknown menu item ${l.item_id}`]);
       if (!m.active) throw new ValidationError([`${m.item_name} is not active`]);
-      // Snapshot price & cost at the moment of saving. Uber orders use the Uber price.
-      const price = uber ? uberPrice(m.selling_price, settings) : m.selling_price;
+      // Snapshot price & cost at the moment of saving. Uber orders use the Uber price (add-ons too).
+      const price = channelPrice(m.selling_price);
+      const addons: Addon[] = (l.addons ?? []).map((a) => {
+        const qty = Math.max(1, Math.floor(Number(a.qty) || 1));
+        if (a.item_id) {
+          const x = menu.find((mm) => mm.item_id === a.item_id && mm.active);
+          if (!x) { errs.push(`${m.item_name}: add-on ${a.item_id} is not on the menu`); return { item_id: "", name: "", price: 0, qty, cost: 0 }; }
+          return { item_id: x.item_id, name: x.item_name, price: channelPrice(x.selling_price), qty, cost: x.unit_cost };
+        }
+        const name = String(a.name ?? "").trim().slice(0, 60);
+        const p = Math.round(Number(a.price));
+        if (!name) errs.push(`${m.item_name}: give the extra a name`);
+        if (!Number.isFinite(p) || p < 0) errs.push(`${m.item_name}: price of "${name}" must be 0 or more`);
+        return { item_id: "", name, price: Math.max(0, p || 0), qty, cost: 0 };
+      }).filter((a) => a.name);
+      const dtype = (l.discount_type === "%" || l.discount_type === "Rs" ? l.discount_type : "") as OrderLine["discount_type"];
+      const dval = dtype ? Number(l.discount_value) || 0 : 0;
+      const prob = discountProblem(l.qty * price, dtype, dval, `${m.item_name} discount`);
+      if (prob) errs.push(prob);
+      const lp = linePrice(l.qty, price, addons, dtype, dval);
       return {
         line_id: `${order_id}-${firstNo + i}`,
         order_id, date, time, meal,
         item_id: m.item_id, item_name: m.item_name, qty: l.qty,
-        unit_price: price, line_total: l.qty * price,
-        unit_cost: m.unit_cost, line_cost: l.qty * m.unit_cost,
+        unit_price: price, line_total: lp.total,
+        unit_cost: m.unit_cost, line_cost: l.qty * m.unit_cost + addonsCost(addons),
         payment_method: payment_method as OrderLine["payment_method"], notes: (input.notes ?? "").trim(), entered_by: user.email,
         order_type: order_type as OrderLine["order_type"], table_no, status: open ? "Open" : "Paid", void_by: "", void_reason: "", invoice_no,
+        item_note: String(l.note ?? "").trim().slice(0, 200), addons: addons.length ? JSON.stringify(addons) : "", addons_total: lp.addons,
+        discount_type: dtype, discount_value: dval, discount_amount: lp.discount, offer_text,
       };
     });
+    if (billDisc) {
+      const prob = discountProblem(rows.reduce((t, r) => t + r.line_total, 0), billDisc.type, billDisc.value, "Bill discount");
+      if (prob) errs.push(prob);
+    }
+    if (errs.length) throw new ValidationError(errs);
+    // The bill discount is its own line (negative amount), so every total, cash and report figure includes it.
+    if (billDisc) {
+      const sub = rows.reduce((t, r) => t + r.line_total, 0);
+      const amount = discountAmount(sub, billDisc.type, billDisc.value);
+      if (amount) rows.push({
+        ...rows[0], line_id: `${order_id}-${firstNo + rows.length}`, item_id: BILL_DISCOUNT_ID, item_name: `Bill discount ${discountLabel(billDisc.type, billDisc.value)}`,
+        qty: 1, unit_price: -amount, line_total: -amount, unit_cost: 0, line_cost: 0, item_note: "", addons: "", addons_total: 0,
+        discount_type: billDisc.type as OrderLine["discount_type"], discount_value: billDisc.value, discount_amount: amount,
+      });
+    }
     await repo.insert("orders", rows);
+    // Items added to an open bill: its bill discount follows the new subtotal.
+    if (bill) await syncBillDiscount(order_id);
     const total = rows.reduce((t, r) => t + r.line_total, 0);
     const fmt = (n: number) => `Rs ${n.toLocaleString("en-US")}`;
     const where = order_type === "Dine-in" ? table_no : order_type === "Uber" ? "Uber" : "take-away";
@@ -173,7 +251,7 @@ async function recordUberCommission(order_id: string, date: string, meal: string
  * Take payment for an open bill: all its lines become Paid (and count in sales and cash from now).
  * Uber bills are "completed" instead: payment is Uber, the Uber invoice number is required, and the commission is recorded.
  */
-export async function payBill(order_id: string, payment_method: string, invoice_no?: string): Promise<ActionResult> {
+export async function payBill(order_id: string, payment_method: string, invoice_no?: string, offer_text?: string): Promise<ActionResult> {
   return run(async () => {
     const user = await requireAction("any");
     const all = await repo.orderLines();
@@ -189,15 +267,31 @@ export async function payBill(order_id: string, payment_method: string, invoice_
       v.check(!all.some((l) => l.order_id !== order_id && l.invoice_no === inv && l.status !== "Void"), `Uber invoice ${inv} is already saved`);
     }
     v.done();
-    for (const l of bill.lines) await repo.update("orders", l.line_id, { status: "Paid", payment_method: method, invoice_no: inv });
+    const offer = (offer_text ?? "").trim().slice(0, 200);
+    const live = liveLines(bill);
+    for (const l of live) await repo.update("orders", l.line_id, { status: "Paid", payment_method: method, invoice_no: inv, offer_text: offer });
     const menu = await repo.menu();
-    const paid = bill.lines.map((l) => ({ ...l, status: "Paid" as const, payment_method: method as OrderLine["payment_method"], invoice_no: inv }));
+    const paid = live.map((l) => ({ ...l, status: "Paid" as const, payment_method: method as OrderLine["payment_method"], invoice_no: inv, offer_text: offer }));
     const fmt = (n: number) => `Rs ${n.toLocaleString("en-US")}`;
     if (uber) {
       const commission = await recordUberCommission(order_id, bill.date, bill.lines[0]?.meal ?? "", bill.total, inv, user.email);
       return { message: `Uber order completed · ${inv} · commission ${fmt(commission)} recorded`, id: order_id, receipt: receiptFor(paid, menu), ticket: "receipt" };
     }
     return { message: `Paid · ${fmt(bill.total)} · ${method}`, id: order_id, receipt: receiptFor(paid, menu), ticket: "receipt" };
+  });
+}
+
+/** Set, change or remove (type "") the discount on the whole open bill. */
+export async function setBillDiscount(order_id: string, type: string, value: number): Promise<ActionResult> {
+  return run(async () => {
+    const user = await requireAction("any");
+    const bill = groupBills((await repo.orderLines()).filter((l) => l.order_id === order_id))[0];
+    if (!bill || bill.status !== "Open") throw new Error("Only an open bill can get a discount.");
+    const t = type === "%" || type === "Rs" ? type : "";
+    const prob = discountProblem(bill.subtotal, t, Number(value) || 0, "Bill discount");
+    if (prob) throw new ValidationError([prob]);
+    await syncBillDiscount(order_id, { type: t, value: Number(value) || 0 }, user.email);
+    return t ? `Bill discount ${discountLabel(t, value)} added` : "Bill discount removed";
   });
 }
 
@@ -237,7 +331,7 @@ export async function voidItems(input: VoidInput): Promise<ActionResult> {
     const bill = groupBills(all.filter((l) => l.order_id === input.order_id))[0];
     if (!bill || bill.status !== "Open") throw new Error("Only items on an open bill can be voided.");
     const why = input.note?.trim() ? `${reason}: ${input.note.trim()}` : reason;
-    const targets = input.line_id ? bill.lines.filter((l) => l.line_id === input.line_id) : bill.lines;
+    const targets = input.line_id ? bill.lines.filter((l) => l.line_id === input.line_id) : liveLines(bill);
     if (!targets.length) throw new Error("That item is not on the bill.");
     let next = nextLineNo(all, bill.order_id);
     for (const l of targets) {
@@ -252,6 +346,7 @@ export async function voidItems(input: VoidInput): Promise<ActionResult> {
         await repo.insert("orders", [{ ...l, line_id: `${l.order_id}-${next++}`, qty: n, line_total: n * l.unit_price, line_cost: n * l.unit_cost, status: "Void", void_by: auth.name, void_reason: why }]);
       }
     }
+    if (input.line_id) await syncBillDiscount(bill.order_id);
     return input.line_id ? `Voided · authorised by ${auth.name}` : `Whole bill voided · authorised by ${auth.name}`;
   });
 }

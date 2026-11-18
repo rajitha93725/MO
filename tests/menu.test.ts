@@ -20,7 +20,8 @@ describe("menu categories setting", () => {
   });
   it("defaults include receipt settings", () => {
     const s = settings();
-    expect(s.menu_categories.map((c) => c.name)).toEqual(["Brunch", "All Day Menu", "Beverage"]);
+    expect(s.menu_categories.map((c) => c.name)).toEqual(["Brunch", "All Day Menu", "Beverage", "Add-ons"]);
+    expect(s.menu_categories.at(-1)!.prefix).toBe("X");
     expect(s.receipt_name).toBe("MO Cafe");
     expect(s.receipt_width_mm).toBe(80);
   });
@@ -31,8 +32,9 @@ describe("new menu (seed)", () => {
   const count = (c: string) => menu.filter((m) => m.category === c).length;
 
   it("has every item from the new menu", () => {
-    expect(menu).toHaveLength(71);
-    expect([count("Brunch"), count("All Day Menu"), count("Beverage")]).toEqual([11, 24, 36]);
+    expect(menu).toHaveLength(77);
+    expect([count("Brunch"), count("All Day Menu"), count("Beverage"), count("Add-ons")]).toEqual([11, 24, 36, 6]);
+    expect(menu.find((m) => m.item_name === "Extra cheese")).toMatchObject({ item_id: "X01", selling_price: 550 });
   });
   it("IDs follow the category letter and are unique", () => {
     expect(new Set(menu.map((m) => m.item_id)).size).toBe(menu.length);
@@ -52,6 +54,6 @@ describe("new menu (seed)", () => {
     expect([p("Watermelon mojito").unit_cost, p("Watermelon mojito").selling_price]).toEqual([200, 950]);
   });
   it("food items keep their description", () => {
-    expect(menu.filter((m) => m.category !== "Beverage").every((m) => m.description.length > 10)).toBe(true);
+    expect(menu.filter((m) => m.category !== "Beverage" && m.category !== "Add-ons").every((m) => m.description.length > 10)).toBe(true);
   });
 });

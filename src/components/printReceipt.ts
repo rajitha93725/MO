@@ -34,6 +34,10 @@ export function printReceipt(order: ReceiptOrder, settings: ReceiptSettings, kin
     window.removeEventListener("afterprint", cleanup);
   };
   window.addEventListener("afterprint", cleanup);
-  // Let the browser lay out the receipt before opening the dialog.
-  requestAnimationFrame(() => setTimeout(() => window.print(), 50));
+  // Wait for the logo (at most 2 s), let the browser lay out the receipt, then open the dialog.
+  const imgs = Array.from(box.querySelectorAll("img"));
+  const loaded = Promise.all(imgs.map((img) => (img.complete ? Promise.resolve() : new Promise<void>((res) => { img.onload = img.onerror = () => res(); }))));
+  Promise.race([loaded, new Promise((res) => setTimeout(res, 2000))]).then(() =>
+    requestAnimationFrame(() => setTimeout(() => window.print(), 50)),
+  );
 }

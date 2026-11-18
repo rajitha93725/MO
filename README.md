@@ -219,7 +219,7 @@ tests/                      unit tests (profit, cash, daily, validation, CSV)
 ```bash
 npm test
 ```
-160 tests cover the profit formulas, fixed-cost allocation (monthly, closed months, one-time full or spread), planned vs actual, partner split and rounding, YTD, cash and bank balances, transfers, the low-cash warning, the daily view, to-do urgency, validation, CSV escaping, the Supabase store and schema, passwords and the Users list, and MO Villa (nights, commission and payout, splitting stays across months, double booking, monthly villa profit, occupancy, per-room profit, cash and combined profit).
+168 tests cover the profit formulas, fixed-cost allocation (monthly, closed months, one-time full or spread), planned vs actual, partner split and rounding, YTD, cash and bank balances, transfers, the low-cash warning, the daily view, to-do urgency, validation, CSV escaping, the Supabase store and schema, passwords and the Users list, and MO Villa (nights, commission and payout, splitting stays across months, double booking, monthly villa profit, occupancy, per-room profit, cash and combined profit).
 
 ---
 
@@ -355,7 +355,30 @@ The order screen starts with three buttons: **🍽️ Dine-in**, **📦 Take-awa
 - Open and voided lines never count as sales, cash or profit; a bill counts when it is paid (on the day it was opened).
   Orders: `status` = Open / Paid / Void (empty = Paid for older orders), `void_by`, `void_reason`.
 
-## 15. Public menu card
+## 15. Item options, discounts and next-day offer
+
+On **Review**, every item has **⚙ Options**:
+- **Kitchen note**: quick notes from Settings `addon_notes` (default *Allergies, More spicy, Less spicy, Without onions*)
+  plus any typed note. Printed under the item on the kitchen ticket and the invoice.
+- **Extras (paid)**: the items of the menu category in Settings `addon_category` (default **Add-ons**: Extra cheese 550,
+  Extra sausages 250, Extra chicken 300, Extra egg 100, Ice cream 1 scoop 150, Extra mayonnaise 100 – edit them in
+  **Menu**), or a typed extra with its own price. Each extra has its own quantity. Uber orders use Uber prices for extras too.
+  Add-ons are not shown as dishes on the order screen or on the public menu.
+- **Item discount**: None / % / Rs, taken from *qty × item price only* – never from the extras.
+
+Below the items: **Bill discount** (None / % / Rs, taken from the subtotal) and **🎁 next-day offer** (text printed in a
+box at the bottom of the invoice; default text from Settings `next_day_offer`). On an open bill both are set on the
+bill page before payment; a % bill discount follows the subtotal when items are added or voided.
+
+The invoice prints the **logo**, each item with its discount, extras and note underneath, then **Subtotal**, **Bill
+discount**, **TOTAL**, **You saved** and the offer. The bill discount is stored as its own order line (`item_id`
+`BILL-DISCOUNT`, negative amount), so sales, cash and profit already include it. The monthly report shows
+**Discounts given** (items / bills) and add-on sales.
+
+Order line columns: `item_note`, `addons` (JSON), `addons_total`, `discount_type`, `discount_value`, `discount_amount`,
+`offer_text`. `line_total` = qty × unit_price − item discount + add-ons.
+
+## 16. Public menu card
 
 **/menu** is the menu for guests: share the link or put it in a QR code. No sign-in needed. Tabs: **Beverage**, **Brunch**,
 **All Day** (from the menu categories; any other category gets its own tab). Only active items are shown, with name,

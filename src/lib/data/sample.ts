@@ -77,6 +77,7 @@ export function buildSample(menu: MenuItem[], monthlyFixed: FixedCost[], from = 
             void_by: "",
             void_reason: "",
             invoice_no,
+            item_note: "", addons: "", addons_total: 0, discount_type: "", discount_value: 0, discount_amount: 0, offer_text: "",
           }),
         );
       }

@@ -4,7 +4,8 @@ import { repo } from "@/lib/data/repo";
 import { StorageError } from "@/components/StorageError";
 import { billLabel, groupBills } from "@/lib/calc/bills";
 import { num, rs } from "@/lib/calc/money";
-import { receiptItemName } from "@/lib/receipt";
+import { receiptFromLines } from "@/lib/receipt";
+import { discountLabel, parseAddons } from "@/lib/calc/pricing";
 import { BillActions, VoidButton } from "./BillActions";
 
 export default async function BillPage({ params }: { params: Promise<{ id: string }> }) {
@@ -32,13 +33,10 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
   const sub = (itemId: string) => menu.find((m) => m.item_id === itemId)?.sub_category;
   const receiptSettings = {
     receipt_name: settings.receipt_name, receipt_address: settings.receipt_address,
-    receipt_footer: settings.receipt_footer, receipt_width_mm: settings.receipt_width_mm,
+    receipt_footer: settings.receipt_footer, receipt_width_mm: settings.receipt_width_mm, logo_url: "/logo.png",
   };
-  const receipt = {
-    order_id: bill.order_id, date: bill.date, time: bill.time, meal: bill.lines[0]?.meal ?? "", payment_method: bill.lines[0]?.payment_method ?? "",
-    notes: bill.notes, order_type: bill.order_type, table_no: bill.table_no, status: open ? "Open" : "Paid", invoice_no: bill.invoice_no,
-    lines: bill.lines.map((l) => ({ item_name: receiptItemName(l.item_name, sub(l.item_id)), qty: l.qty, unit_price: l.unit_price, line_total: l.line_total })),
-  };
+  const receipt = receiptFromLines([...bill.lines, ...(bill.discount ? [bill.discount] : [])], sub);
+
 
   return (
     <div className="stack" style={{ maxWidth: 640 }}>
@@ -57,12 +55,21 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
             <span style={{ flex: 1 }}>
               <b>{l.qty}×</b> {l.item_name}
               <span className="tile-group">{num(l.unit_price)} each</span>
+              {l.discount_amount > 0 && <span className="line-detail">Discount {discountLabel(l.discount_type, l.discount_value)} · −{num(l.discount_amount)}</span>}
+              {parseAddons(l.addons).map((a, i) => <span key={i} className="line-detail">+ {a.name}{a.qty > 1 ? ` × ${a.qty}` : ""} · {num(a.price * a.qty)}</span>)}
+              {l.item_note && <span className="line-detail">✎ {l.item_note}</span>}
             </span>
             <b className="num">{num(l.line_total)}</b>
             {open && <VoidButton orderId={bill.order_id} lineId={l.line_id} name={l.item_name} qty={l.qty} authorisers={authorisers} />}
           </div>
         ))}
         {bill.lines.length === 0 && <span className="muted">No items left on this bill.</span>}
+        {bill.discount && (
+          <>
+            <div className="spread small" style={{ borderTop: "1px solid var(--border)", paddingTop: 8 }}><span>Subtotal</span><span>{num(bill.subtotal)}</span></div>
+            <div className="spread small"><span>{bill.discount.item_name}</span><span>−{num(-bill.discount.line_total)}</span></div>
+          </>
+        )}
         <div className="spread" style={{ borderTop: "1px solid var(--border)", paddingTop: 8 }}>
           <b>Total</b><b className="num" style={{ fontSize: "1.3rem" }}>{rs(bill.total)}</b>
         </div>
@@ -80,7 +87,8 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
       </div>
 
       {open ? (
-        <BillActions orderId={bill.order_id} uber={bill.order_type === "Uber"} invoiceNo={bill.invoice_no} total={bill.total} receipt={receipt} receiptSettings={receiptSettings} authorisers={authorisers} hasItems={bill.lines.length > 0} />
+        <BillActions defaultOffer={settings.next_day_offer} offerText={bill.lines.find((l) => l.offer_text)?.offer_text ?? ""}
+          subtotal={bill.subtotal} discountType={bill.discount?.discount_type ?? ""} discountValue={bill.discount?.discount_value ?? 0} orderId={bill.order_id} uber={bill.order_type === "Uber"} invoiceNo={bill.invoice_no} total={bill.total} receipt={receipt} receiptSettings={receiptSettings} authorisers={authorisers} hasItems={bill.lines.length > 0} />
       ) : (
         <div className="row">
           <Link href={`/receipt/${encodeURIComponent(bill.order_id)}`} className="btn">🖨 Receipt</Link>

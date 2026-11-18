@@ -119,6 +119,17 @@ export interface OrderLine {
   void_reason: string;
   /** Invoice number: YYMMDD_NNN (daily, from 021) for cafe orders; the Uber invoice number (typed in) for Uber. */
   invoice_no: string;
+  /** Kitchen note for this item: allergies, more / less spicy, without onions, … */
+  item_note: string;
+  /** Paid add-ons as JSON (see calc/pricing.ts Addon), and their total (included in line_total). */
+  addons: string;
+  addons_total: number;
+  /** Item discount (% or Rs) on qty × unit_price only (not on add-ons). On the bill-discount line: the bill discount. */
+  discount_type: "%" | "Rs" | "";
+  discount_value: number;
+  discount_amount: number;
+  /** Next-day offer printed at the bottom of the invoice ("" = none). */
+  offer_text: string;
 }
 
 export interface DailyCost {
@@ -321,6 +332,12 @@ export interface Settings {
   uber_commission_pct: number;
   /** Dine-in tables by area, in display order (first area blue, second green). */
   dining_areas: DiningArea[];
+  /** Menu category whose items are add-ons (extra cheese, extra egg, …), not shown as dishes. */
+  addon_category: string;
+  /** Quick kitchen notes on the order screen (Allergies, More spicy, …). */
+  addon_notes: string[];
+  /** Default text for the next-day offer on invoices ("" = none). */
+  next_day_offer: string;
 }
 
 /** Raw key/value row of the Settings tab. */

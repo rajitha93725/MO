@@ -91,7 +91,22 @@ export function seedMenu(): MenuItem[] {
     const p = prefixes.get(category)!;
     counters[p] = (counters[p] ?? 0) + 1;
     return { item_id: `${p}${String(counters[p]).padStart(2, "0")}`, category, sub_category, item_name, unit_cost, selling_price, active: true, description };
-  });
+  }).concat(seedAddons());
+}
+
+/** Paid extras (category Add-ons, IDs X01…): picked on a dish on the order screen. Costs are estimates – edit in Menu. */
+export function seedAddons(): MenuItem[] {
+  const items: [string, number, number][] = [
+    ["Extra cheese", 550, 250],
+    ["Extra sausages", 250, 120],
+    ["Extra chicken", 300, 150],
+    ["Extra egg", 100, 45],
+    ["Ice cream (1 scoop)", 150, 60],
+    ["Extra mayonnaise", 100, 30],
+  ];
+  return items.map(([item_name, selling_price, unit_cost], i) => ({
+    item_id: `X${String(i + 1).padStart(2, "0")}`, category: "Add-ons", sub_category: "Extras", item_name, unit_cost, selling_price, active: true, description: "",
+  }));
 }
 
 /** Monthly fixed costs from the Target Sales plan (Rs 370,000 / month from opening). */

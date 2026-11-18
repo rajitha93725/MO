@@ -2,6 +2,7 @@
 
 import { orderTypeOf, type OrderLine, type OrderType } from "../types";
 import { sum } from "./money";
+import { BILL_DISCOUNT_ID, isDiscountLine } from "./pricing";
 
 export interface Bill {
   order_id: string;
@@ -11,8 +12,12 @@ export interface Bill {
   table_no: string;
   /** Open = at least one line not paid yet. */
   status: "Open" | "Paid" | "Void";
-  /** Lines still on the bill (not voided). */
+  /** Items still on the bill (not voided; without the bill-discount line). */
   lines: OrderLine[];
+  /** The bill-discount line, if the bill has one (its line_total is negative). */
+  discount?: OrderLine;
+  /** Sum of the items before the bill discount. */
+  subtotal: number;
   voided: OrderLine[];
   total: number;
   items: number;
@@ -42,8 +47,9 @@ export function groupBills(lines: OrderLine[]): Bill[] {
   return [...map.entries()]
     .map(([order_id, ls]) => {
       const live = ls.filter((l) => l.status !== "Void");
+      const items = live.filter((l) => !isDiscountLine(l));
       const first = ls[0];
-      const status: Bill["status"] = live.some((l) => l.status === "Open") ? "Open" : live.length ? "Paid" : "Void";
+      const status: Bill["status"] = live.some((l) => l.status === "Open") ? "Open" : items.length ? "Paid" : "Void";
       return {
         order_id,
         date: first.date,
@@ -51,15 +57,22 @@ export function groupBills(lines: OrderLine[]): Bill[] {
         order_type: orderTypeOf(first),
         table_no: first.table_no ?? "",
         status,
-        lines: live,
-        voided: ls.filter((l) => l.status === "Void"),
+        lines: items,
+        discount: live.find((l) => l.item_id === BILL_DISCOUNT_ID),
+        subtotal: sum(items, (l) => l.line_total),
+        voided: ls.filter((l) => l.status === "Void" && !isDiscountLine(l)),
         total: sum(live, (l) => l.line_total),
-        items: sum(live, (l) => l.qty),
+        items: sum(items, (l) => l.qty),
         notes: ls.find((l) => l.notes)?.notes ?? "",
         invoice_no: ls.find((l) => l.invoice_no)?.invoice_no ?? "",
       };
     })
     .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+}
+
+/** Every line still on the bill: the items and the bill-discount line. */
+export function liveLines(b: Bill): OrderLine[] {
+  return b.discount ? [...b.lines, b.discount] : b.lines;
 }
 
 export function openBills(lines: OrderLine[]): Bill[] {

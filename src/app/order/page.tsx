@@ -20,7 +20,11 @@ export default async function OrderPage({ searchParams }: { searchParams: Promis
     const t = today(settings);
     // The meal is logged from the time (same rule as when saving); it only picks the first menu tab here.
     const meal = mealForTime(nowTime(settings));
-    const categories = settings.menu_categories.map((c) => c.name);
+    // Add-ons (Extra cheese, …) are picked on an item, not shown as dishes.
+    const isAddon = (c: string) => c.toLowerCase() === settings.addon_category.toLowerCase();
+    const categories = settings.menu_categories.map((c) => c.name).filter((c) => !isAddon(c));
+    const dishes = menu.filter((m) => m.active && !isAddon(m.category));
+    const addonItems = menu.filter((m) => m.active && isAddon(m.category));
     const uber = { uber_markup_pct: settings.uber_markup_pct, uber_commission_pct: settings.uber_commission_pct };
     return (
       <OrderEntry
@@ -29,7 +33,10 @@ export default async function OrderPage({ searchParams }: { searchParams: Promis
         busy={busyTables(open)}
         addTo={adding ? summary(adding) : undefined}
         addToMissing={Boolean(billId && !adding)}
-        menu={menu.filter((m) => m.active)}
+        menu={dishes}
+        addonItems={addonItems}
+        noteTags={settings.addon_notes}
+        defaultOffer={settings.next_day_offer}
         today={t}
         defaultMeal={meal}
         categories={categories}
@@ -41,6 +48,7 @@ export default async function OrderPage({ searchParams }: { searchParams: Promis
           receipt_address: settings.receipt_address,
           receipt_footer: settings.receipt_footer,
           receipt_width_mm: settings.receipt_width_mm,
+          logo_url: "/logo.png",
         }}
       />
     );

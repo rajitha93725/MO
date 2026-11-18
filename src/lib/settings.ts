@@ -45,9 +45,20 @@ export const DEFAULT_SETTING_ROWS: SettingRow[] = [
   { key: "receipt_footer", value: "Thank you! Come again", description: "Receipt: line printed at the bottom" },
   { key: "receipt_width_mm", value: "80", description: "Receipt paper width in mm (80 or 58 for receipt printers)" },
   { key: "uber_markup_pct", value: "33.4", description: "Uber orders: % added to the menu price (rounded up to the next Rs 10)" },
+  { key: "addon_category", value: "Add-ons", description: "Menu category for paid extras (Extra cheese, Extra egg, …). Its items are picked as add-ons on an item, not as dishes, and are not on the public menu" },
+  { key: "addon_notes", value: "Allergies,More spicy,Less spicy,Without onions", description: "Quick kitchen notes for an item on the order screen (comma separated); any other note can be typed" },
+  { key: "next_day_offer", value: "", description: "Default next-day offer text printed at the bottom of an invoice when ticked at payment (e.g. 'Show this bill tomorrow: 10% off breakfast')" },
   { key: "dining_tables", value: "Upstairs:5,Garden:5", description: "Dine-in tables as Area:number of tables (tables are named like 'Upstairs 1'). On the order screen the first area is blue, the second green" },
   { key: "uber_commission_pct", value: "25", description: "Uber orders: % of the Uber total that Uber keeps. Saved automatically as a Daily cost 'Uber commission' (Bank, Business)" },
 ];
+
+/** Appends the add-on category (ID letter X, or the first free letter) when Settings does not list it. */
+export function withAddonCategory(cats: MenuCategory[], name: string): MenuCategory[] {
+  if (cats.some((c) => c.name.toLowerCase() === name.toLowerCase())) return cats;
+  const used = new Set(cats.map((c) => c.prefix));
+  const prefix = ["X", ..."ZYWVUTSRQPONMLKJIHGFEDCBA"].find((l) => !used.has(l)) ?? "X";
+  return [...cats, { name, prefix }];
+}
 
 /** "Upstairs:5,Garden:5" -> [{ name: "Upstairs", tables: ["Upstairs 1", …] }, …]. */
 export function parseDiningTables(s: string): DiningArea[] {
@@ -196,7 +207,8 @@ export function parseSettings(rows: SettingRow[], targets: TargetPeriod[]): Sett
     villa_cost_categories: parseCategoryList(g("villa_cost_categories")),
     villa_allocation: g("villa_allocation") === "check_in" ? "check_in" : "nights",
     villa_partners: villaPartners,
-    menu_categories: parseMenuCategories(g("menu_categories")),
+    // The add-on category is always there (with a free ID letter), so add-ons can be added in the Menu editor.
+    menu_categories: withAddonCategory(parseMenuCategories(g("menu_categories")), g("addon_category") || "Add-ons"),
     receipt_name: g("receipt_name"),
     receipt_address: g("receipt_address"),
     receipt_footer: g("receipt_footer"),
@@ -204,6 +216,9 @@ export function parseSettings(rows: SettingRow[], targets: TargetPeriod[]): Sett
     uber_markup_pct: pctSetting(g("uber_markup_pct"), "uber_markup_pct"),
     uber_commission_pct: pctSetting(g("uber_commission_pct"), "uber_commission_pct"),
     dining_areas: parseDiningTables(g("dining_tables")),
+    addon_category: g("addon_category") || "Add-ons",
+    addon_notes: list(g("addon_notes")),
+    next_day_offer: g("next_day_offer"),
   };
 }
 

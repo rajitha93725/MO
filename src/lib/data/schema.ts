@@ -25,6 +25,7 @@ export const HEADERS: Record<TabKey, string[]> = {
   orders: [
     "order_id", "date", "time", "meal", "item_id", "item_name", "qty", "unit_price", "line_total",
     "unit_cost", "line_cost", "payment_method", "notes", "line_id", "entered_by", "order_type", "table_no", "status", "void_by", "void_reason", "invoice_no",
+    "item_note", "addons", "addons_total", "discount_type", "discount_value", "discount_amount", "offer_text",
   ],
   dailyCosts: ["cost_id", "date", "category", "description", "amount", "paid_from", "paid_by", "notes", "entered_by"],
   fixedCosts: ["fixed_id", "name", "amount", "frequency", "start_month", "end_month", "month_paid", "paid_from", "notes"],
@@ -71,6 +72,7 @@ export const NUMBER_COLUMNS = new Set([
   "qty", "unit_price", "line_total", "line_cost", "amount",
   "planned_monthly_sales", "planned_net_profit",
   "daily_target_breakfast", "daily_target_lunch", "daily_target_dinner",
+  "addons_total", "discount_value", "discount_amount",
   "guests", "nights", "total_price", "commission_pct", "commission_amount", "booking_costs", "net_payout", "cost_amount",
 ]);
 

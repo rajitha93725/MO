@@ -420,3 +420,25 @@ table.cal td.cal-booked a { display: flex; align-items: center; justify-content:
 .bill-line { flex-wrap: wrap; }
 .bill-line.void { text-decoration: line-through; color: var(--muted); }
 .void-box { border: 2px solid var(--bad); }
+
+/* ---------- receipt details: logo, item discounts, add-ons, notes, offer ---------- */
+.receipt .r-logo-wrap { text-align: center; margin-bottom: 4px; }
+.receipt .r-logo { width: 26mm; max-width: 45%; height: auto; display: inline-block; border-radius: 4mm; }
+.receipt tr.r-sub td { font-size: 11px; padding-top: 0; color: #222; }
+.receipt tr.k-sub td { font-size: 14px; font-weight: 700; padding-top: 0; }
+.receipt .r-offer { border: 1.5px dashed #000; padding: 5px 6px; margin: 6px 0; text-align: center; font-size: 12px; }
+.receipt .r-offer-title { font-weight: 800; letter-spacing: 0.04em; }
+
+/* ---------- line options, discounts, offer ---------- */
+.cart-line { display: grid; gap: 4px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.opt-btn.on { background: var(--surface-2); }
+.opt-sum { color: var(--text-2); }
+.line-opts { background: var(--surface-2); border-radius: 12px; padding: 10px; gap: 10px; }
+.line-opts .chips { flex-wrap: wrap; overflow: visible; }
+.addon-row { padding: 2px 0; }
+.disc-box, .offer-box { display: grid; gap: 6px; }
+.disc-input { gap: 8px; flex-wrap: nowrap; }
+.seg.mini { grid-auto-columns: minmax(52px, auto); }
+.seg.mini button { min-height: 38px; padding: 0 10px; }
+.totals { display: grid; gap: 2px; border-top: 1px solid var(--border); padding-top: 6px; }
+.line-detail { display: block; font-size: 0.75rem; color: var(--text-2); }
