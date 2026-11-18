@@ -1,6 +1,7 @@
 import "server-only";
 import { MemoryStore } from "./memoryStore";
 import { SheetsStore } from "./sheetsStore";
+import { SupabaseStore } from "./supabaseStore";
 import type { DataStore, Row } from "./store";
 import { seedFixedCosts, seedMenu, seedSettingsRows, seedTargets, seedUsers } from "./seed";
 import { buildSample } from "./sample";
@@ -42,6 +43,7 @@ function demoStore(): DataStore {
 // Sheets store lives in a module variable, so a code reload (dev hot reload) always gets the
 // current SheetsStore code. The demo memory store is kept on globalThis so its data survives reloads.
 let sheetsStore: DataStore | undefined;
+let supabaseStore: DataStore | undefined;
 
 /** The one place that decides which storage backend the app uses. */
 export function getStore(): DataStore {
@@ -49,6 +51,14 @@ export function getStore(): DataStore {
   if (backend === "memory") {
     globalThis.__moStore ??= demoStore();
     return globalThis.__moStore;
+  }
+  if (backend === "supabase") {
+    if (supabaseStore) return supabaseStore;
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SECRET_KEY;
+    if (!url || !key) throw new Error("Missing SUPABASE_URL / SUPABASE_SECRET_KEY (see README → Supabase).");
+    supabaseStore = new SupabaseStore(url, key);
+    return supabaseStore;
   }
   if (sheetsStore) return sheetsStore;
   const id = process.env.GOOGLE_SHEET_ID;

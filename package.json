@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "setup:sheet": "tsx scripts/setup-sheet.ts"
+    "setup:sheet": "tsx scripts/setup-sheet.ts",
+    "supabase:sql": "tsx scripts/supabase-sql.ts",
+    "copy:supabase": "tsx scripts/copy-sheet-to-supabase.ts"
   },
   "dependencies": {
     "google-auth-library": "9.15.1",

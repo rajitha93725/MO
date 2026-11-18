@@ -328,3 +328,23 @@ On **New order**, switch the top toggle from **☕ Cafe** to **🛵 Uber**. The 
 - With a 33.4% markup and 25% commission, the cafe keeps at least the normal menu price (1.334 × 0.75 ≈ 1.0).
 - Home shows Uber sales and commission for today and for each day. Expected daily net profit = sales − food cost − Uber commission. Monthly net profit includes the commission because it is a daily cost.
 - Monthly reports list Uber as a payment method.
+
+## 13. Supabase (database instead of the Google Sheet)
+
+The app can store everything in Supabase (Postgres) instead of the Google Sheet. Same tables and columns as the sheet tabs
+(tab name in lower case: `Daily_Costs` → `daily_costs`), no cache, every read is fresh.
+
+| Setting | Value |
+|---|---|
+| `DATA_BACKEND` | `supabase` (or `sheets` to go back to the Google Sheet) |
+| `SUPABASE_URL` | `https://<project-id>.supabase.co` (the "Data API" URL ending in `/rest/v1/` also works) |
+| `SUPABASE_SECRET_KEY` | the project's **secret** key (`sb_secret_…`) – server only, never commit it. On Firebase it is the secret `mo-supabase-secret-key`. |
+
+1. **Tables:** paste `supabase/schema.sql` into Supabase → SQL Editor → Run. Safe to run again. After adding a column to
+   `src/lib/data/schema.ts`, run `npm run supabase:sql` and run the new file again.
+2. **Copy the data:** `npm run copy:supabase` copies every sheet tab into Supabase. It only adds rows that are missing, so
+   it can be run again to catch up; it never changes or deletes rows already in Supabase.
+3. **Security:** row level security is on with no policies, and the public (anon) key has no access. Only the app's
+   server, using the secret key, can read or write. Access rules (owner / partner / staff, villa hidden from partners)
+   are unchanged because they live in the app.
+4. **Back to Sheets:** set `DATA_BACKEND` to `sheets`. Data entered while on Supabase is not copied back automatically.
