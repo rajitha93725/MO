@@ -1,7 +1,14 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { authDisabled, currentUser } from "@/lib/auth";
 import { Logo } from "@/components/ui";
-import { SignInButton } from "./SignInButton";
+import { PasswordSignIn, SignInButton } from "./SignInButton";
+
+const ERRORS: Record<string, string> = {
+  CredentialsSignin: "Wrong username or password.",
+  TooManyAttempts: "Too many wrong tries. Please wait 10 minutes and try again.",
+  AccessDenied: "This account is not on the Users list. Ask the owner to add it.",
+};
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   if (authDisabled() || (await currentUser())) redirect("/");
@@ -11,14 +18,16 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <div style={{ display: "flex", justifyContent: "center" }}>
         <Logo size={96} />
       </div>
-      <h1>MO Cafe &amp; Villa</h1>
-      <p className="muted">Sign in with the Google account the partners have added.</p>
-      {error && (
-        <div className="errors">
-          {error === "AccessDenied" ? "This Google account is not on the Users list. Ask a partner to add it." : `Sign-in failed (${error}).`}
-        </div>
-      )}
+      <h1 style={{ margin: 0 }}>MO – Operations</h1>
+      {error && <div className="errors">{ERRORS[error] ?? `Sign-in failed (${error}).`}</div>}
+      <PasswordSignIn />
+      <div className="row small muted" style={{ justifyContent: "center", gap: 10 }}>
+        <span style={{ flex: 1, height: 1, background: "var(--border)" }} /> or <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
+      </div>
       <SignInButton />
+      <p className="small muted" style={{ margin: 0 }}>
+        Looking for the menu? <Link href="/menu">View our menu</Link>
+      </p>
     </div>
   );
 }

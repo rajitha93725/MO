@@ -183,6 +183,8 @@ create table if not exists public.users (
 );
 alter table public.users add column if not exists "name" text not null default '';
 alter table public.users add column if not exists "role" text not null default '';
+alter table public.users add column if not exists "username" text not null default '';
+alter table public.users add column if not exists "password_hash" text not null default '';
 create index if not exists users_seq_idx on public.users (seq);
 alter table public.users enable row level security;
 revoke all on public.users from anon, authenticated;

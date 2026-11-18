@@ -4,7 +4,8 @@ import { useState } from "react";
 import { saveSettings, saveTargets, saveUsers } from "@/app/actions";
 import { CsvButton, formToObject, useAction } from "@/components/ui";
 import { HEADERS } from "@/lib/data/schema";
-import type { SettingRow, TargetPeriod, UserRow } from "@/lib/types";
+import type { SettingRow, TargetPeriod } from "@/lib/types";
+import { LOCAL_EMAIL_DOMAIN, type PublicUser, type UserForm } from "@/lib/users";
 
 const LABELS: Record<string, string> = {
   opening_month: "Opening month",
@@ -148,19 +149,23 @@ export function TargetsForm({ targets }: { targets: TargetPeriod[] }) {
   );
 }
 
-export function UsersForm({ users }: { users: UserRow[] }) {
-  const [rows, setRows] = useState<Record<string, string>[]>(users.map((u) => ({ email: u.email, name: u.name, role: u.role })));
+export function UsersForm({ users }: { users: PublicUser[] }) {
+  const [rows, setRows] = useState<(UserForm & { has_password?: boolean })[]>(
+    users.map((u) => ({ orig_email: u.email, email: u.email.endsWith("@" + LOCAL_EMAIL_DOMAIN) ? "" : u.email, name: u.name, role: u.role, username: u.username, has_password: u.has_password })),
+  );
   const { pending, call, ui } = useAction();
   const set = (i: number, k: string, v: string) => setRows((r) => r.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
   return (
     <div className="card stack">
       <b>Users &amp; roles</b>
       <p className="small muted" style={{ margin: 0 }}>
-        Only these Google accounts can sign in. <b>partner</b> = full access. <b>staff</b> = add orders and daily costs only.
+        Only these people can sign in – with their <b>Google email</b>, or with a <b>username + password</b> you set here (for someone without
+        Google, leave the email empty). <b>partner</b> = full access. <b>staff</b> = add orders and daily costs only. Passwords are stored
+        encrypted; type a new one to change it.
       </p>
       {rows.map((r, i) => (
         <div key={i} className="form-grid">
-          <label className="field full"><span>Google email</span><input type="email" value={r.email ?? ""} onChange={(e) => set(i, "email", e.target.value)} /></label>
+          <label className="field full"><span>Google email (optional with a username)</span><input type="email" value={r.email ?? ""} onChange={(e) => set(i, "email", e.target.value)} /></label>
           <label className="field"><span>Name</span><input value={r.name ?? ""} onChange={(e) => set(i, "name", e.target.value)} /></label>
           <label className="field">
             <span>Role</span>
@@ -169,15 +174,27 @@ export function UsersForm({ users }: { users: UserRow[] }) {
               <option>staff</option>
             </select>
           </label>
-          <div className="full">
-            <button type="button" className="small danger" onClick={() => setRows((x) => x.filter((_, j) => j !== i))}>Remove</button>
+          <label className="field"><span>Username</span><input autoComplete="off" autoCapitalize="none" value={r.username ?? ""} onChange={(e) => set(i, "username", e.target.value)} /></label>
+          <label className="field">
+            <span>{r.has_password ? "New password (blank = keep)" : "Password"}</span>
+            <input type="password" autoComplete="new-password" value={r.password ?? ""} onChange={(e) => set(i, "password", e.target.value)} placeholder={r.has_password ? "•••••••• set" : "min 8 characters"} />
+          </label>
+          <div className="full row">
+            {r.has_password && (
+              <label className="row small"><input type="checkbox" checked={r.clear_password === "yes"} onChange={(e) => set(i, "clear_password", e.target.checked ? "yes" : "")} /> Remove password</label>
+            )}
+            <button type="button" className="small danger" onClick={() => setRows((x) => x.filter((_, j) => j !== i))}>Remove user</button>
           </div>
         </div>
       ))}
       {ui}
       <div className="row">
         <button type="button" onClick={() => setRows((x) => [...x, { role: "staff" }])}>+ Add user</button>
-        <button className="primary" disabled={pending} onClick={() => call(() => saveUsers(rows))}>Save users</button>
+        <button className="primary" disabled={pending} onClick={() => call(async () => {
+          const r = await saveUsers(rows.map(({ has_password, ...x }) => x));
+          if (r.ok) setRows((x) => x.map((u) => ({ ...u, orig_email: u.email || (u.username ? `${u.username.trim().toLowerCase()}@${LOCAL_EMAIL_DOMAIN}` : ""), has_password: u.clear_password === "yes" ? false : u.has_password || Boolean(u.password), password: "", clear_password: "" })));
+          return r;
+        })}>Save users</button>
       </div>
     </div>
   );

@@ -34,6 +34,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en">
       {/* suppressHydrationWarning: browser extensions (e.g. Grammarly) add attributes to <body> before React loads */}
       <body suppressHydrationWarning>
+        {/* The app bar is for signed-in users only; signed-out visitors see the login page or the public menu. */}
+        {user && (
         <header className="topbar">
           <Link href="/" aria-label="Home" style={{ display: "flex" }}>
             <Logo size={38} />
@@ -42,7 +44,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             {user?.owner ? "MO Cafe & Villa" : "MO Cafe"}
             <small>Operations</small>
           </div>
-          {user && (
+          {(
             <div className="user">
               {user.name}
               <br />
@@ -56,6 +58,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </div>
           )}
         </header>
+        )}
         <main>{children}</main>
         {user && <BottomNav role={user.role} />}
       </body>

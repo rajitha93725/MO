@@ -9,3 +9,6 @@ credentials/
 # firebase
 .firebase/
 firebase-debug.log
+
+# original menu photos (web copies are in public/menu)
+menuImages/

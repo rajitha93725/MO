@@ -11,12 +11,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "setup:sheet": "tsx scripts/setup-sheet.ts",
-    "supabase:sql": "tsx scripts/supabase-sql.ts",
-    "copy:supabase": "tsx scripts/copy-sheet-to-supabase.ts"
+    "supabase:sql": "tsx scripts/supabase-sql.ts"
   },
   "dependencies": {
-    "google-auth-library": "9.15.1",
     "next": "15.5.29",
     "next-auth": "4.24.15",
     "react": "19.1.10",

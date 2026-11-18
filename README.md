@@ -1,14 +1,15 @@
 # MO Cafe & Villa – Operations
 
 Mobile-first Next.js app for the daily operations of MO Cafe & Villa: orders, costs, profit, cash and bank, to-dos.
-Currency is LKR (whole rupees). The data lives in a Google Sheet, one tab per entity.
+Currency is LKR (whole rupees). The data lives in Supabase (Postgres), one table per entity.
+The public menu card is at **/menu** (no sign-in); everything else needs sign-in.
 
 - **Brand:** the "MO · Stay · Eatery" logo (white letters, black outline) on red `#D7141A`. Original: `logo/MO logo, option 3@2x.png`; app copies: `public/logo.png` (header/login), `src/app/icon.png` (browser tab) and `src/app/apple-icon.png` (phone home screen).
-- **Stack:** Next.js 15 (App Router, server actions), NextAuth (Google sign-in), Google Sheets REST API through a service account, Recharts, Vitest.
+- **Stack:** Next.js 15 (App Router, server actions), NextAuth (Google sign-in or username + password), Supabase REST API with the secret key, Recharts, Vitest.
 
 ---
 
-## 1. Quick look without Google (demo mode)
+## 1. Quick look without a database (demo mode)
 
 ```bash
 npm install
@@ -18,58 +19,49 @@ DATA_BACKEND=memory AUTH_DISABLED=true DEMO_TODAY=2027-01-20 npm run dev
 
 Open http://localhost:3000. Demo mode uses in-memory sample data and resets on every restart. Set `DEMO_ROLE=staff` to see what staff see.
 
-## 2. Setup with Google Sheets
+## 2. Setup
 
-### 2.1 The spreadsheet
-The app uses a single sheet: **MO**, `https://docs.google.com/spreadsheets/d/17WZm1xvPyjg6o4B6RkjjJpByzhnO0qvTVOkgeL8w_fU`.
-Its tabs, headers and starting data are already set up. Sample data is never written to it; that exists only in demo mode (section 1).
+### 2.1 Database (Supabase)
+Project `wlxjvghrlspurnslimkx` (Singapore). Tables are created by `supabase/schema.sql`: paste it into Supabase → **SQL Editor** → **Run**.
+It is safe to run again and only adds missing tables and columns. After changing `src/lib/data/schema.ts`, run
+`npm run supabase:sql` and run the new file again.
 
-### 2.2 Service account (the app's server reads and writes the sheet with it)
-1. Open https://console.cloud.google.com and create a project, for example `mo-cafe-ops`.
-2. Go to **APIs & Services → Library**, search for **Google Sheets API**, and click **Enable**.
-3. Go to **IAM & Admin → Service Accounts → Create service account**, name it `mo-sheets` and finish. It needs no project roles.
-4. Open the service account, go to **Keys → Add key → Create new key → JSON**, and download the file. Keep it private and never commit it.
-5. In the MO spreadsheet, click **Share**, paste the service-account email (`mo-cafe-villa@mo-villa-and-cafe.iam.gserviceaccount.com`) and give it **Editor** access.
+Row level security is on with no policies and the public (anon) key has no access: only the app's server, using the
+**secret** key, can read or write. Access rules (owner / partner / staff, villa hidden from partners) live in the app.
+Edit data in the app, or in Supabase → **Table Editor** if you must. Supabase makes daily backups.
 
-### 2.3 Google sign-in (OAuth client for the partners and staff)
-1. Go to **APIs & Services → OAuth consent screen**. Choose **External**, fill in the app name "MO Cafe & Villa" and your email, and add the scopes `email`, `profile` and `openid`.
-   While the app is in **Testing**, add every user's Gmail under **Test users**. Alternatively, click **Publish app**.
-2. Go to **APIs & Services → Credentials → Create credentials → OAuth client ID → Web application**.
-   - Authorised JavaScript origin: `http://localhost:3000`, plus your production URL later.
-   - Authorised redirect URI: `http://localhost:3000/api/auth/callback/google`, plus `https://<your-domain>/api/auth/callback/google` later.
-3. Copy the **Client ID** and **Client secret**.
+### 2.2 Sign-in
+- **Username + password:** the owner sets them in **Settings → Users & roles**. Someone without Google can leave the email
+  empty (it becomes `<username>@mo.local`). Passwords are stored as scrypt hashes. After 5 wrong tries a login is locked for
+  10 minutes.
+- **Google:** OAuth client in Google Cloud → **APIs & Services → Credentials**. Redirect URI
+  `https://<your-domain>/api/auth/callback/google` (and `http://localhost:3000/...` for local). While the consent screen is
+  in **Testing**, add every Google user under **Test users**.
 
-### 2.4 Environment
+### 2.3 Environment
 Copy `.env.example` to `.env.local` and fill it in:
 
 | Variable | Value |
 |---|---|
-| `DATA_BACKEND` | `sheets` |
-| `GOOGLE_SHEET_ID` | `17WZm1xvPyjg6o4B6RkjjJpByzhnO0qvTVOkgeL8w_fU` (already set in `.env.local`) |
-| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | `client_email` from the JSON key |
-| `GOOGLE_PRIVATE_KEY` | `private_key` from the JSON key, in double quotes, keeping the `\n` sequences |
+| `DATA_BACKEND` | `supabase` (or `memory` for the demo) |
+| `SUPABASE_URL` | `https://wlxjvghrlspurnslimkx.supabase.co` |
+| `SUPABASE_SECRET_KEY` | the project's **secret** key (`sb_secret_…`), server only, never commit it. On Firebase: secret `mo-supabase-secret-key` |
 | `NEXTAUTH_URL` | `http://localhost:3000` (or the production URL) |
 | `NEXTAUTH_SECRET` | a long random string (`npx auth secret` or `openssl rand -base64 32`) |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | from step 2.3 |
-| `BOOTSTRAP_PARTNER_EMAILS` | `rajitha93725@gmail.com`. These emails can always sign in as a partner. |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google sign-in (step 2.2) |
+| `BOOTSTRAP_PARTNER_EMAILS` | `rajitha93725@gmail.com`. These emails can always sign in with Google as a partner. |
 | `OWNER_EMAILS` | `rajitha93725@gmail.com`. The owner(s): the only accounts that see MO Villa, Cash & bank, Settings and Users. Falls back to `BOOTSTRAP_PARTNER_EMAILS` when empty. |
 
-### 2.5 Tabs and seed data (already done for the MO sheet)
-```bash
-npm run setup:sheet   # all tabs + Menu (54 items), Settings, Targets, Fixed_Costs, Users. No sample data.
-```
-You only need this to rebuild a new or blank sheet. It's safe to re-run: a tab that already has data rows is left unchanged.
-
-### 2.6 Run
+### 2.4 Run
 ```bash
 npm run dev            # development
 npm run build && npm start   # production
 ```
-Sign in as Rajitha, then go to **More → Settings → Users & roles** and add Janith (`partner`) and the staff (`staff`).
-Under **Cash & bank**, add an **Opening balance** for Petty cash and for Bank.
 
-### 2.7 Deploy (later)
-The app runs on any Node 18+ host. On **Vercel**: import the repo, add the same environment variables (set `NEXTAUTH_URL` to the Vercel URL), and add that URL's callback to the OAuth client. Don't set `AUTH_DISABLED` or `DEMO_TODAY` in production.
+### 2.5 Deploy
+Firebase App Hosting (backend `mo-ops`): every push to `main` rolls out. Settings are in `apphosting.yaml`; secrets live in
+Cloud Secret Manager (`node scripts/set-firebase-secrets.mjs mo-ops` uploads them from `.env.local`). Don't set
+`AUTH_DISABLED` or `DEMO_TODAY` in production.
 
 ---
 
@@ -81,13 +73,13 @@ The app runs on any Node 18+ host. On **Vercel**: import the repo, add the same 
 | **partner** | The cafe: menu, fixed costs and payments, cafe profit and their cafe share, cafe capital, to-dos, and edit or delete any cafe entry. **No villa information**: no villa page or cards, no villa profit or shares, no villa to-dos (ticked **🏡 MO Villa task** or linked to a booking), the app is called just "MO Cafe", no MO Villa or shared capital, and no Cash & bank (villa money moves through the same accounts) |
 | **staff** | Add orders and daily costs, and view the menu, daily sales and to-dos. No profit, cash, settings or editing of existing entries |
 
-Roles are checked on the server inside every page (`requirePage`) and server action (`requireAction`), not only hidden in the UI. Sign-in is limited to the Users tab plus `BOOTSTRAP_PARTNER_EMAILS`. The owner comes from the server config (`OWNER_EMAILS`), never from the sheet, so no one can give themselves owner access from inside the app.
+Roles are checked on the server inside every page (`requirePage`) and server action (`requireAction`), not only hidden in the UI. Sign-in is limited to the Users table plus `BOOTSTRAP_PARTNER_EMAILS`. The owner comes from the server config (`OWNER_EMAILS`), never from the database, so no one can give themselves owner access from inside the app.
 
 ---
 
-## 4. Tabs and columns
+## 4. Tables and columns
 
-Every tab has a header row. The app reads columns **by header name**, so you can reorder columns, but don't rename them.
+One Supabase table per entity (lower-case name, e.g. `Daily_Costs` → `daily_costs`), columns as in `src/lib/data/schema.ts`.
 Dates are `YYYY-MM-DD`, months are `YYYY-MM`, and amounts are whole rupees.
 
 ### Menu
@@ -168,7 +160,7 @@ Types: Opening balance, Top-up, Withdrawal (these use `account`), and Transfer p
 Seeded from your Target Sales plan: First 3 months (Dec 2026–Feb 2027), Next 3 months (Mar–May 2027) and the 2028 season (Nov 2027–May 2028).
 
 ### Users
-`email, name, role (partner / staff)`
+`email, name, role (partner / staff), username, password_hash` (email is the ID; the hash never reaches the browser)
 
 ---
 
@@ -201,26 +193,26 @@ All of these live in `src/lib/calc/` as pure functions. No numbers are hard-code
 src/lib/types.ts            domain types
 src/lib/settings.ts         Settings parsing + seed defaults
 src/lib/calc/               pure calculations (profit, fixedCosts, cash, daily, dates, money)
-src/lib/data/schema.ts      tab names + columns (single source of truth)
+src/lib/data/schema.ts      table names + columns (single source of truth)
 src/lib/data/store.ts       DataStore interface  ← swap point
-src/lib/data/sheetsStore.ts Google Sheets implementation
+src/lib/data/supabaseStore.ts Supabase implementation (+ supabaseSql.ts → supabase/schema.sql)
 src/lib/data/memoryStore.ts in-memory implementation (demo/tests)
 src/lib/data/index.ts       getStore(): picks the backend
 src/lib/data/repo.ts        typed repository used by pages/actions
 src/app/actions.ts          server actions (validation + role checks)
 src/app/*                   screens
-scripts/setup-sheet.ts      creates tabs + seeds
+src/lib/password.ts         password hashing + sign-in attempt limit
+src/lib/users.ts            Users list checks (Settings → Users)
+src/app/menu/               public menu card (/menu) and editor (/menu/edit)
 tests/                      unit tests (profit, cash, daily, validation, CSV)
 ```
-
-**Moving to Supabase or Firebase:** create tables named as in `schema.ts` with the same columns, implement the five methods of `DataStore` (`list`, `insert`, `update`, `remove`, `replaceAll`), and return the new store from `getStore()`. The UI and calculations stay the same.
 
 ## 7. Tests
 
 ```bash
 npm test
 ```
-126 tests cover the profit formulas, fixed-cost allocation (monthly, closed months, one-time full or spread), planned vs actual, partner split and rounding, YTD, cash and bank balances, transfers, the low-cash warning, the daily view, to-do urgency, validation, CSV escaping, the Sheets store, and MO Villa (nights, commission and payout, splitting stays across months, double booking, monthly villa profit, occupancy, per-room profit, cash and combined profit).
+138 tests cover the profit formulas, fixed-cost allocation (monthly, closed months, one-time full or spread), planned vs actual, partner split and rounding, YTD, cash and bank balances, transfers, the low-cash warning, the daily view, to-do urgency, validation, CSV escaping, the Supabase store and schema, passwords and the Users list, and MO Villa (nights, commission and payout, splitting stays across months, double booking, monthly villa profit, occupancy, per-room profit, cash and combined profit).
 
 ---
 
@@ -305,9 +297,9 @@ All figures come from the same calculations as the other pages (`src/lib/calc/re
 
 ## 11. Receipts
 
-After **Save** on the New order screen, the receipt prints straight from that screen. The print dialog opens, the app stays on New order, and the cart is already empty for the next order. The receipt uses the data from the save itself, so it never has to wait for the sheet. **🖨 Print again** reprints the last order. The **Print receipt after saving** checkbox in the cart turns this on or off, and each phone or tablet remembers its own choice.
+After **Save** on the New order screen, the receipt prints straight from that screen. The print dialog opens, the app stays on New order, and the cart is already empty for the next order. The receipt uses the data from the save itself, so it never has to wait for the database. **🖨 Print again** reprints the last order. The **Print receipt after saving** checkbox in the cart turns this on or off, and each phone or tablet remembers its own choice.
 
-- Reprint any order from **Sales** with the 🖨 button next to it. If a receipt page opens just after a save, it reads the sheet directly when its cached copy doesn't have the order yet.
+- Reprint any order from **Sales** with the 🖨 button next to it. Receipts always read the latest data.
 - The receipt shows the date, time, meal, order number, each item (qty × price), total, payment method, item count and the order note.
 - Header, footer and paper width come from Settings (`receipt_name`, `receipt_address`, `receipt_footer`, `receipt_width_mm`).
 - Browsers always show the print dialog (a web page can't print silently). For one-tap printing on a counter PC, start Chrome with `--kiosk-printing` and set the receipt printer as the default.
@@ -329,22 +321,14 @@ On **New order**, switch the top toggle from **☕ Cafe** to **🛵 Uber**. The 
 - Home shows Uber sales and commission for today and for each day. Expected daily net profit = sales − food cost − Uber commission. Monthly net profit includes the commission because it is a daily cost.
 - Monthly reports list Uber as a payment method.
 
-## 13. Supabase (database instead of the Google Sheet)
+## 13. Public menu card
 
-The app can store everything in Supabase (Postgres) instead of the Google Sheet. Same tables and columns as the sheet tabs
-(tab name in lower case: `Daily_Costs` → `daily_costs`), no cache, every read is fresh.
+**/menu** is the menu for guests: share the link or put it in a QR code. No sign-in needed. Tabs: **Beverage**, **Brunch**,
+**All Day** (from the menu categories; any other category gets its own tab). Only active items are shown, with name,
+description and selling price (never costs or Uber prices). Name and address come from Settings (`receipt_name`,
+`receipt_address`), and the footer from `receipt_footer`.
 
-| Setting | Value |
-|---|---|
-| `DATA_BACKEND` | `supabase` (or `sheets` to go back to the Google Sheet) |
-| `SUPABASE_URL` | `https://<project-id>.supabase.co` (the "Data API" URL ending in `/rest/v1/` also works) |
-| `SUPABASE_SECRET_KEY` | the project's **secret** key (`sb_secret_…`) – server only, never commit it. On Firebase it is the secret `mo-supabase-secret-key`. |
+Background photos fade from one to the next per tab: `public/menu/beverage-*.jpg`, `brunch-*.jpg`, `allday-*.jpg`
+(web-sized copies of the photos in `menuImages/`; change the list in `src/app/menu/page.tsx`).
 
-1. **Tables:** paste `supabase/schema.sql` into Supabase → SQL Editor → Run. Safe to run again. After adding a column to
-   `src/lib/data/schema.ts`, run `npm run supabase:sql` and run the new file again.
-2. **Copy the data:** `npm run copy:supabase` copies every sheet tab into Supabase. It only adds rows that are missing, so
-   it can be run again to catch up; it never changes or deletes rows already in Supabase.
-3. **Security:** row level security is on with no policies, and the public (anon) key has no access. Only the app's
-   server, using the secret key, can read or write. Access rules (owner / partner / staff, villa hidden from partners)
-   are unchanged because they live in the app.
-4. **Back to Sheets:** set `DATA_BACKEND` to `sheets`. Data entered while on Supabase is not copied back automatically.
+Signed-in users see an **✏️ Edit menu** button that opens the editor at **/menu/edit** (the app's Menu tab).

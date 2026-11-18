@@ -1,7 +1,7 @@
 import { ID_COLUMN, type TabKey } from "./schema";
 import type { DataStore, Row } from "./store";
 
-/** In-memory store for local demo and tests. Same contract as SheetsStore. */
+/** In-memory store for local demo and tests. Same contract as SupabaseStore. */
 export class MemoryStore implements DataStore {
   private data = new Map<TabKey, Row[]>();
 

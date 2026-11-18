@@ -290,3 +290,78 @@ table.cal td.cal-booked a { display: flex; align-items: center; justify-content:
 .uber-note { padding: 8px 10px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); }
 .uber-note.sum { display: grid; gap: 4px; }
 .badge.uber { background: #000; color: #fff; }
+
+/* ---------- Public menu card (/menu) ---------- */
+.mcard {
+  --m-red: #d7141a;
+  --m-ink: #1b1512;
+  --m-ink-2: #5b524b;
+  --m-paper: rgba(255, 250, 242, 0.95);
+  --m-rule: #e6d9c6;
+  color-scheme: light;
+  position: relative;
+  max-width: 760px;
+  margin: 0 auto;
+  color: var(--m-ink);
+  padding-bottom: 40px;
+}
+.mcard-bg { position: fixed; inset: 0; z-index: 0; background: #1b1512; }
+.mcard-photo {
+  position: absolute; inset: 0; background-size: cover; background-position: center;
+  opacity: 0; transform: scale(1.06); transition: opacity 1.4s ease, transform 7s ease-out;
+}
+.mcard-photo.on { opacity: 1; transform: scale(1); }
+.mcard-shade {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(20, 12, 8, 0.25) 0%, rgba(20, 12, 8, 0.55) 45%, rgba(20, 12, 8, 0.8) 100%);
+}
+.mcard > *:not(.mcard-bg) { position: relative; z-index: 1; }
+.mcard-hero { text-align: center; color: #fff; padding: 28px 16px 22px; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45); }
+.mcard-logo { border-radius: 24px; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35); display: block; margin: 0 auto 12px; }
+.mcard-hero h1 { margin: 0; font-size: 2.1rem; font-weight: 700; letter-spacing: 0.5px; }
+.mcard-tagline { text-transform: uppercase; letter-spacing: 4px; font-size: 0.8rem; font-weight: 600; opacity: 0.95; margin-top: 2px; }
+.mcard-address { font-size: 0.85rem; opacity: 0.85; margin-top: 6px; }
+
+.mcard-tabs {
+  position: sticky; top: 0; z-index: 2; display: flex; gap: 6px; justify-content: center;
+  padding: 10px 8px; margin: 0 0 12px; scroll-margin-top: 0;
+}
+.mcard-tabs button {
+  flex: 1 1 0; max-width: 200px; border: 0; border-radius: 999px; padding: 11px 10px; font-size: 0.98rem; font-weight: 700;
+  background: rgba(255, 250, 242, 0.88); color: var(--m-ink); cursor: pointer; white-space: nowrap;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.25); backdrop-filter: blur(6px); transition: background 0.2s, color 0.2s, transform 0.1s;
+}
+.mcard-tabs button:active { transform: scale(0.97); }
+.mcard-tabs button.on { background: var(--m-red); color: #fff; }
+.mcard-tabs button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+
+.mcard-paper {
+  background: var(--m-paper); border-radius: 22px; padding: 22px 22px 18px; margin: 0 4px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35); backdrop-filter: blur(4px);
+}
+.mcard-section + .mcard-section { margin-top: 26px; }
+.mcard-section h2 {
+  margin: 0 0 12px; font-size: 1.35rem; font-weight: 700; color: var(--m-red); text-align: center;
+  display: flex; align-items: center; gap: 12px;
+}
+.mcard-section h2::before, .mcard-section h2::after { content: ""; flex: 1; height: 2px; background: var(--m-rule); border-radius: 2px; }
+.mcard-section ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.mcard-section ul.compact { gap: 9px 28px; }
+@media (min-width: 620px) { .mcard-section ul.compact { grid-template-columns: 1fr 1fr; } }
+.mcard-line { display: flex; align-items: baseline; gap: 8px; }
+.mcard-name { font-weight: 700; font-size: 1rem; }
+.mcard-dots { flex: 1; border-bottom: 2px dotted #cdbfac; transform: translateY(-4px); min-width: 16px; }
+.mcard-price { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--m-ink); }
+.mcard-desc { margin: 3px 0 0; font-size: 0.86rem; line-height: 1.4; color: var(--m-ink-2); max-width: 92%; }
+.mcard-foot { margin-top: 26px; padding-top: 12px; border-top: 2px solid var(--m-rule); text-align: center; font-size: 0.8rem; color: var(--m-ink-2); display: grid; gap: 2px; }
+.mcard-empty { text-align: center; margin: 12px 0; }
+.mcard-edit {
+  position: fixed; right: 16px; bottom: 84px; z-index: 3; background: var(--m-ink); color: #fff; text-decoration: none;
+  padding: 11px 16px; border-radius: 999px; font-weight: 700; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+@media (max-width: 420px) {
+  .mcard-paper { padding: 18px 14px 14px; margin: 0; border-radius: 18px; }
+  .mcard-tabs button { font-size: 0.9rem; padding: 10px 6px; }
+  .mcard-hero h1 { font-size: 1.8rem; }
+}
+@media (prefers-reduced-motion: reduce) { .mcard-photo { transition: none; transform: none; } }

@@ -4,7 +4,7 @@
 
 import { BOOLEAN_COLUMNS, HEADERS, ID_COLUMN, NUMBER_COLUMNS, TABS, type TabKey } from "./schema";
 
-/** Postgres table for a tab: the sheet tab name in lower case (e.g. Daily_Costs -> daily_costs). */
+/** Postgres table for a tab: the tab name in lower case (e.g. Daily_Costs -> daily_costs). */
 export function tableName(tab: TabKey): string {
   return TABS[tab].toLowerCase();
 }

@@ -1,6 +1,5 @@
-// Single source of truth for tab names and column order.
-// The setup script creates the tabs from this; the Sheets store reads/writes by header name,
-// so columns may be reordered in the sheet without breaking the app.
+// Single source of truth for table names and column order.
+// supabase/schema.sql is generated from this (npm run supabase:sql); table = tab name in lower case.
 
 export const TABS = {
   menu: "Menu",
@@ -37,7 +36,7 @@ export const HEADERS: Record<TabKey, string[]> = {
     "period", "start_month", "end_month", "planned_monthly_sales", "planned_net_profit",
     "daily_target_breakfast", "daily_target_lunch", "daily_target_dinner",
   ],
-  users: ["email", "name", "role"],
+  users: ["email", "name", "role", "username", "password_hash"],
   villa: [
     "record_id", "record_type", "date_entered",
     "room_number", "room_type",
@@ -75,7 +74,7 @@ export const NUMBER_COLUMNS = new Set([
   "guests", "nights", "total_price", "commission_pct", "commission_amount", "booking_costs", "net_payout", "cost_amount",
 ]);
 
-/** Columns formatted as plain text in the sheet (dates, months, times, free-form setting values). */
+/** Columns that hold text such as dates, months, times and free-form setting values. */
 export const TEXT_COLUMNS: Partial<Record<TabKey, string[]>> = {
   priceHistory: ["effective_date"],
   orders: ["date", "time"],

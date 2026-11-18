@@ -39,7 +39,7 @@ describe("SupabaseStore", () => {
   it("accepts the Data API url and sends the key", async () => {
     const f = fakeFetch(() => []);
     await new SupabaseStore("https://x.supabase.co/rest/v1/", key, f.fn).list("users");
-    expect(f.calls[0].url).toBe("https://x.supabase.co/rest/v1/users?select=email,name,role&order=seq.asc&limit=1000&offset=0");
+    expect(f.calls[0].url).toBe("https://x.supabase.co/rest/v1/users?select=email,name,role,username,password_hash&order=seq.asc&limit=1000&offset=0");
     expect(f.calls[0].headers.apikey).toBe(key);
     expect(f.calls[0].headers.Authorization).toBe(`Bearer ${key}`);
   });

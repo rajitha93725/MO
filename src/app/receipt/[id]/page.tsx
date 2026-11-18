@@ -17,7 +17,7 @@ export default async function ReceiptPage({ params, searchParams }: { params: Pr
   }
   const orderId = decodeURIComponent(id);
   let lines = orders.filter((o) => o.order_id === orderId);
-  // Just saved? This server's cached copy may not have it yet: read the sheet directly.
+  // Just saved? Read straight from the database to be sure.
   if (!lines.length) {
     try {
       lines = (await repo.ordersFresh()).filter((o) => o.order_id === orderId);

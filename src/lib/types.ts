@@ -1,5 +1,5 @@
-// Domain types. These are storage-agnostic: the Google Sheets store and any
-// future store (Supabase / Firebase) map their rows to and from these shapes.
+// Domain types. These are storage-agnostic: the Supabase store and the demo
+// memory store map their rows to and from these shapes.
 
 export type Meal = "Breakfast" | "Lunch" | "Dinner";
 export const MEALS: Meal[] = ["Breakfast", "Lunch", "Dinner"];
@@ -185,6 +185,10 @@ export interface UserRow {
   email: string;
   name: string;
   role: Role;
+  /** Optional sign-in name for username + password login (lower case). */
+  username: string;
+  /** scrypt hash (src/lib/password.ts); empty = no password, Google sign-in only. Never sent to the browser. */
+  password_hash: string;
 }
 
 /** A planned-target period (from the Targets tab). */

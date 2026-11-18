@@ -1,6 +1,8 @@
 import "server-only";
 import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { loginLocked, recordLogin, verifyPassword } from "./password";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { cache } from "react";
@@ -24,21 +26,21 @@ const emailList = (v: string | undefined) => (v ?? "").split(",").map((s) => s.t
 
 /**
  * Owners come from the server config (OWNER_EMAILS, falling back to BOOTSTRAP_PARTNER_EMAILS),
- * never from the sheet, so nobody can give themselves owner access from inside the app.
+ * never from the database, so nobody can give themselves owner access from inside the app.
  */
 export function ownerEmails(): string[] {
   const owners = emailList(process.env.OWNER_EMAILS);
   return owners.length ? owners : emailList(process.env.BOOTSTRAP_PARTNER_EMAILS);
 }
 
-/** Look up an email in the Users tab (or the bootstrap partner list). */
+/** Look up an email in the Users table (or the bootstrap partner list). */
 export async function resolveUser(email: string | null | undefined): Promise<AppUser | null> {
   if (!email) return null;
   const e = email.trim().toLowerCase();
   const owner = ownerEmails().includes(e);
   const users = await repo.users();
   const u = users.find((x) => String(x.email).trim().toLowerCase() === e);
-  // An owner is always a partner, whatever the Users tab says.
+  // An owner is always a partner, whatever the Users table says.
   if (u && (u.role === "partner" || u.role === "staff")) return { email: e, name: u.name || e, role: owner ? "partner" : u.role, owner };
   if (owner || emailList(process.env.BOOTSTRAP_PARTNER_EMAILS).includes(e)) return { email: e, name: e.split("@")[0], role: "partner", owner };
   return null;
@@ -50,17 +52,34 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
     }),
+    // Username (or email) + password, for people listed in Users with a password set by the owner.
+    CredentialsProvider({
+      id: "password",
+      name: "Username and password",
+      credentials: { username: { label: "Username", type: "text" }, password: { label: "Password", type: "password" } },
+      async authorize(c) {
+        const login = String(c?.username ?? "").trim().toLowerCase();
+        const pw = String(c?.password ?? "");
+        if (!login || !pw) return null;
+        if (loginLocked(login)) throw new Error("TooManyAttempts");
+        const u = (await repo.users()).find((x) => String(x.username ?? "").toLowerCase() === login || String(x.email).toLowerCase() === login);
+        const ok = await verifyPassword(pw, u?.password_hash || undefined);
+        recordLogin(login, ok);
+        if (!ok || !u) return null;
+        return { id: u.email, email: u.email, name: u.name };
+      },
+    }),
   ],
   session: { strategy: "jwt", maxAge: 30 * 24 * 3600 },
   pages: { signIn: "/login", error: "/login" },
   callbacks: {
-    // Only emails listed in the Users tab (or bootstrap list) can sign in.
+    // Only people listed in Users (or the bootstrap list) can sign in, with Google or a password.
     async signIn({ user }) {
       return Boolean(await resolveUser(user.email));
     },
     async jwt({ token }) {
-      // Re-check the role against the Users tab at most every 5 minutes (not on every page),
-      // so role changes in the sheet still take effect quickly.
+      // Re-check the role against the Users table at most every 5 minutes (not on every page),
+      // so role changes in Settings → Users still take effect quickly.
       const checkedAt = Number(token.roleCheckedAt ?? 0);
       if (!token.role || Date.now() - checkedAt > 5 * 60_000) {
         const u = await resolveUser(token.email);

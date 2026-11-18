@@ -10,7 +10,7 @@ export default async function MorePage() {
     { href: "/cash", t: "Cash & bank", d: "Balances and movements", owner: true },
     { href: "/capital", t: "Capital", d: "Opening budget paid by each partner", partner: true },
     { href: "/fixed", t: "Fixed costs", d: "Rent, salary… planned vs paid", partner: true },
-    { href: "/menu", t: "Menu", d: "Prices, cost, food cost %" },
+    { href: "/menu/edit", t: "Menu", d: "Prices, cost, food cost % · public menu card at /menu" },
     { href: "/todo", t: "To-do", d: "Tasks for the team" },
     { href: "/sales", t: "Daily sales", d: "Per meal, vs target" },
     { href: "/settings", t: "Settings", d: "Targets, split, users", owner: true },

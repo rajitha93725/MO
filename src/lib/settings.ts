@@ -2,7 +2,7 @@ import type { MenuCategory, Partner, Settings, SettingRow, TargetPeriod, VillaPl
 
 /**
  * Default Settings rows. These are written to the Settings tab by the setup script
- * and are only used as a fallback if a key is missing from the sheet.
+ * and are only used as a fallback if a key is missing from the Settings table.
  * Calculations always receive a parsed Settings object — never these constants directly.
  */
 export const DEFAULT_SETTING_ROWS: SettingRow[] = [

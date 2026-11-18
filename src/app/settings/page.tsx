@@ -2,6 +2,7 @@ import { requirePage } from "@/lib/auth";
 import { repo } from "@/lib/data/repo";
 import { StorageError } from "@/components/StorageError";
 import { DEFAULT_SETTING_ROWS } from "@/lib/settings";
+import { publicUsers } from "@/lib/users";
 import { SettingsForm, TargetsForm, UsersForm } from "./SettingsForms";
 
 export default async function SettingsPage() {
@@ -16,7 +17,7 @@ export default async function SettingsPage() {
         <h1>Settings</h1>
         <SettingsForm rows={[...merged, ...extra].map((r) => ({ key: r.key, value: String(r.value), description: r.description }))} />
         <TargetsForm targets={targets} />
-        <UsersForm users={users} />
+        <UsersForm users={publicUsers(users)} />
       </div>
     );
   } catch (e) {

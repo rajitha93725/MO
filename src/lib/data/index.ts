@@ -1,6 +1,5 @@
 import "server-only";
 import { MemoryStore } from "./memoryStore";
-import { SheetsStore } from "./sheetsStore";
 import { SupabaseStore } from "./supabaseStore";
 import type { DataStore, Row } from "./store";
 import { seedFixedCosts, seedMenu, seedSettingsRows, seedTargets, seedUsers } from "./seed";
@@ -40,31 +39,22 @@ function demoStore(): DataStore {
   });
 }
 
-// Sheets store lives in a module variable, so a code reload (dev hot reload) always gets the
-// current SheetsStore code. The demo memory store is kept on globalThis so its data survives reloads.
-let sheetsStore: DataStore | undefined;
+// The Supabase store lives in a module variable, so a code reload (dev hot reload) always gets the
+// current code. The demo memory store is kept on globalThis so its data survives reloads.
 let supabaseStore: DataStore | undefined;
 
 /** The one place that decides which storage backend the app uses. */
 export function getStore(): DataStore {
-  const backend = process.env.DATA_BACKEND ?? "sheets";
+  const backend = process.env.DATA_BACKEND ?? "supabase";
   if (backend === "memory") {
     globalThis.__moStore ??= demoStore();
     return globalThis.__moStore;
   }
-  if (backend === "supabase") {
-    if (supabaseStore) return supabaseStore;
-    const url = process.env.SUPABASE_URL;
-    const key = process.env.SUPABASE_SECRET_KEY;
-    if (!url || !key) throw new Error("Missing SUPABASE_URL / SUPABASE_SECRET_KEY (see README → Supabase).");
-    supabaseStore = new SupabaseStore(url, key);
-    return supabaseStore;
-  }
-  if (sheetsStore) return sheetsStore;
-  const id = process.env.GOOGLE_SHEET_ID;
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const key = process.env.GOOGLE_PRIVATE_KEY;
-  if (!id || !email || !key) throw new Error("Missing GOOGLE_SHEET_ID / GOOGLE_SERVICE_ACCOUNT_EMAIL / GOOGLE_PRIVATE_KEY (see README).");
-  sheetsStore = new SheetsStore(id, email, key);
-  return sheetsStore;
+  if (backend !== "supabase") throw new Error(`Unknown DATA_BACKEND "${backend}" (use supabase, or memory for the demo).`);
+  if (supabaseStore) return supabaseStore;
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SECRET_KEY;
+  if (!url || !key) throw new Error("Missing SUPABASE_URL / SUPABASE_SECRET_KEY (see README → Setup).");
+  supabaseStore = new SupabaseStore(url, key);
+  return supabaseStore;
 }

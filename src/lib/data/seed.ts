@@ -117,9 +117,9 @@ export function seedFixedCosts(): FixedCost[] {
   }));
 }
 
-/** Janith and staff emails are added later in the Users tab. */
+/** Janith and staff emails are added later in Settings → Users. */
 export function seedUsers(): UserRow[] {
-  return [{ email: "rajitha93725@gmail.com", name: "Rajitha", role: "partner" }];
+  return [{ email: "rajitha93725@gmail.com", name: "Rajitha", role: "partner", username: "", password_hash: "" }];
 }
 
 export function seedSettingsRows(): Row[] {

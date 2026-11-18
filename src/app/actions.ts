@@ -13,6 +13,8 @@ import {
 } from "@/lib/types";
 import { commissionFor, findOverlaps, netPayoutFor, nightsBetween } from "@/lib/calc/villa";
 import type { ReceiptOrder } from "@/lib/receipt";
+import { buildUsers, type UserForm } from "@/lib/users";
+import { hashPassword } from "@/lib/password";
 import { UBER_COST_CATEGORY, uberCommission, uberCostId, uberPrice } from "@/lib/calc/uber";
 
 export type ActionResult =
@@ -400,19 +402,15 @@ export async function saveTargets(rows: Record<string, string>[]): Promise<Actio
   });
 }
 
-export async function saveUsers(rows: Record<string, string>[]): Promise<ActionResult> {
+export async function saveUsers(rows: UserForm[]): Promise<ActionResult> {
   return run(async () => {
     const me = await requireAction("owner");
     const v = new V();
-    const out = rows.filter((r) => (r.email ?? "").trim()).map((r) => ({
-      email: v.required("Email", r.email).toLowerCase(),
-      name: v.required("Name", r.name),
-      role: v.oneOf("Role", r.role, ["partner", "staff"] as const),
-    }));
-    out.forEach((u) => v.check(/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(u.email), `Invalid email ${u.email}`));
-    v.check(me.email === "demo@local" || out.some((u) => u.email === me.email && u.role === "partner"), "You cannot remove your own partner access");
+    const { users, errors } = await buildUsers(rows, await repo.users(), hashPassword);
+    errors.forEach((e) => v.check(false, e));
+    v.check(me.email === "demo@local" || users.some((u) => u.email === me.email && u.role === "partner"), "You cannot remove your own partner access");
     v.done();
-    await repo.replaceAll("users", out);
+    await repo.replaceAll("users", users as unknown as Record<string, string>[]);
     return "Users saved";
   });
 }

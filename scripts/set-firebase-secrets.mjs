@@ -11,7 +11,7 @@ import { execFileSync } from "node:child_process";
 const PROJECT = "mo-villa-and-cafe";
 const backend = process.argv[2];
 const env = readFileSync(".env.local", "utf8");
-// Supports KEY=value, KEY="value" and KEY="multi-line value" (as the private key is usually stored).
+// Supports KEY=value, KEY="value" and KEY="multi-line value".
 const get = (k) => {
   const m = env.match(new RegExp(`^${k}=(?:"([\\s\\S]*?)"|'([\\s\\S]*?)'|(.*))\\s*$`, "m"));
   const v = m && (m[1] ?? m[2] ?? m[3] ?? "").replace(/\r/g, "").trim();
@@ -19,13 +19,8 @@ const get = (k) => {
   return v;
 };
 
-const privateKey = get("GOOGLE_PRIVATE_KEY").replace(/\\n/g, "\n");
-if (!privateKey.includes("-----BEGIN PRIVATE KEY-----") || !privateKey.includes("-----END PRIVATE KEY-----") || privateKey.length < 1000) {
-  throw new Error("GOOGLE_PRIVATE_KEY in .env.local does not look like a full private key (BEGIN…END). Nothing was uploaded.");
-}
-
 const secrets = {
-  "mo-google-private-key": privateKey,
+  "mo-supabase-secret-key": get("SUPABASE_SECRET_KEY"),
   "mo-google-client-secret": get("GOOGLE_CLIENT_SECRET"),
   "mo-nextauth-secret": get("NEXTAUTH_SECRET"),
 };

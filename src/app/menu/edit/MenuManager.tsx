@@ -9,7 +9,7 @@ import type { MenuItem, PriceHistory } from "@/lib/types";
 
 const n = (v: number) => Math.round(v).toLocaleString("en-US");
 export function MenuManager({ menu, history, target, isPartner, categories }: { menu: MenuItem[]; history: PriceHistory[]; target: number; isPartner: boolean; categories: string[] }) {
-  // Settings order first, then any category used in the sheet but not listed in Settings.
+  // Settings order first, then any category used in the menu but not listed in Settings.
   const CATS = [...categories, ...Array.from(new Set(menu.map((m) => m.category))).filter((c) => !categories.includes(c))];
   const [editing, setEditing] = useState<MenuItem | "new" | null>(null);
   const [showInactive, setShowInactive] = useState(false);
@@ -24,6 +24,7 @@ export function MenuManager({ menu, history, target, isPartner, categories }: { 
     <div className="stack">
       <div className="spread">
         <h1 style={{ margin: 0 }}>Menu</h1>
+        <a href="/menu" target="_blank" className="small">👀 View menu card</a>
         <div className="row">
           <CsvButton filename="menu" headers={HEADERS.menu} rows={menu.map((m) => HEADERS.menu.map((h) => (h === "active" ? (m.active ? "yes" : "no") : (m as any)[h])))} />
           {isPartner && <button className="primary small" onClick={() => setEditing("new")}>+ Add item</button>}

@@ -37,7 +37,7 @@ export function BottomNav({ role }: { role: Role }) {
           { href: "/sales", label: "Sales", icon: I.sales },
           { href: "/order", label: "Order", icon: I.plus, cta: true },
           { href: "/costs", label: "Costs", icon: I.cost },
-          { href: "/menu", label: "Menu", icon: I.chart },
+          { href: "/menu/edit", label: "Menu", icon: I.chart },
         ];
   return (
     <nav className="bottomnav" aria-label="Main">
