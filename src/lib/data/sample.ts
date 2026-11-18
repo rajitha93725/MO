@@ -70,6 +70,9 @@ export function buildSample(menu: MenuItem[], monthlyFixed: FixedCost[], from = 
             entered_by: "sample",
             order_type,
             table_no,
+            status: "Paid",
+            void_by: "",
+            void_reason: "",
           }),
         );
       }

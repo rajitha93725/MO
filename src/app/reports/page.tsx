@@ -63,6 +63,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const month = q && isValidMonth(q) ? q : monthOf(t);
   const input = { orders, dailyCosts, fixedCosts, fixedPayments, settings };
   const r = cafeReport(month, input, menu);
+  // Voided items this month (never counted in sales), with who authorised them.
+  const voids = data.orderLines.filter((l) => l.status === "Void" && monthOf(l.date) === month);
   const p = r.profit;
   const prev = r.previous;
   // Villa, cash and the combined split are for the owner only.
@@ -247,6 +249,23 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                 </tr>
               ))}
               {r.items.length === 0 && <tr><td colSpan={8} className="muted">No items sold</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+
+      {/* ---------- voids ---------- */}
+      <Section
+        title={`Voided items (${voids.length})`}
+        csv={<CsvButton filename={file("voids")} headers={["date", "time", "order_id", "item", "qty", "amount", "authorised_by", "reason", "entered_by"]} rows={voids.map((l) => [l.date, l.time, l.order_id, l.item_name, l.qty, l.line_total, l.void_by, l.void_reason, l.entered_by])} />}
+      >
+        <div className="table-wrap">
+          <table className="small">
+            <thead><tr><th>Date</th><th>Item</th><th className="num">Qty</th><th className="num">Amount</th><th>Authorised by</th><th>Reason</th></tr></thead>
+            <tbody>
+              {voids.map((l) => <tr key={l.line_id}><td style={{ whiteSpace: "nowrap" }}>{l.date} {l.time}</td><td>{l.item_name}</td><td className="num">{l.qty}</td><td className="num">{num(l.line_total)}</td><td>{l.void_by}</td><td>{l.void_reason}</td></tr>)}
+              {voids.length === 0 && <tr><td colSpan={6} className="muted">No voided items this month</td></tr>}
+              {voids.length > 0 && <tr className="total"><td colSpan={3}>Total voided</td><td className="num">{num(voids.reduce((t2, l) => t2 + l.line_total, 0))}</td><td colSpan={2}></td></tr>}
             </tbody>
           </table>
         </div>

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { saveOrder } from "@/app/actions";
 import { useAction } from "@/components/ui";
 import { ORDER_TYPES, ORDER_TYPE_ICON, PAYMENT_METHODS, type DiningArea, type Meal, type MenuItem, type OrderChannel, type OrderType, type PaymentMethod } from "@/lib/types";
@@ -12,6 +14,15 @@ const rs = (n: number) => `Rs ${Math.round(n).toLocaleString("en-US")}`;
 
 const PRINT_KEY = "mo.printReceipt";
 
+/** An open bill as the order screen needs it. */
+export interface BillSummary {
+  order_id: string;
+  label: string;
+  total: number;
+  items: number;
+  lines: { name: string; qty: number }[];
+}
+
 export interface UberSettings {
   uber_markup_pct: number;
   uber_commission_pct: number;
@@ -19,10 +30,13 @@ export interface UberSettings {
 
 export function OrderEntry({
   menu, today, defaultMeal, categories: settingCats, uber: uberSettings, defaultChannel = "Cafe", receiptSettings, areas,
+  openBills = [], busy = {}, addTo, addToMissing,
 }: {
   menu: MenuItem[]; today: string; defaultMeal: Meal; categories: string[]; uber: UberSettings;
   defaultChannel?: OrderChannel; receiptSettings: ReceiptSettings; areas: DiningArea[];
+  openBills?: BillSummary[]; busy?: Record<string, string>; addTo?: BillSummary; addToMissing?: boolean;
 }) {
+  const router = useRouter();
   // Settings order first; then any category in use but not listed in Settings.
   const categories = useMemo(
     () => [...settingCats.filter((c) => menu.some((m) => m.category === c)), ...Array.from(new Set(menu.map((m) => m.category))).filter((c) => !settingCats.includes(c))],
@@ -32,7 +46,7 @@ export function OrderEntry({
   const [table, setTable] = useState("");
   const [pickTable, setPickTable] = useState(true);
   const isUber = type === "Uber";
-  const needsTable = type === "Dine-in" && !table;
+  const needsTable = !addTo && type === "Dine-in" && !table;
   const areaOf = (t: string) => Math.max(0, areas.findIndex((a) => a.tables.includes(t)));
   const chooseType = (t: OrderType) => {
     setType(t);
@@ -78,9 +92,12 @@ export function OrderEntry({
   // Small grey menu group under the name (e.g. "SweetMO"), so names stay quick to read. The receipt keeps "SweetMO · name".
   const group = (m: MenuItem) => (m.sub_category && m.sub_category !== m.item_name ? m.sub_category : "");
 
-  const submit = () =>
+  const submit = (open: boolean) =>
     call(
-      () => saveOrder({ channel: isUber ? "Uber" : "Cafe", order_type: type, table_no: type === "Dine-in" ? table : "", payment_method: isUber ? "Uber" : pay, notes, date, lines: lines.map((l) => ({ item_id: l.item.item_id, qty: l.qty })) }),
+      () => saveOrder({
+        channel: isUber ? "Uber" : "Cafe", order_type: type, table_no: type === "Dine-in" ? table : "", payment_method: isUber ? "Uber" : pay,
+        notes, date, lines: lines.map((l) => ({ item_id: l.item.item_id, qty: l.qty })), open, bill_id: addTo?.order_id,
+      }),
       (r) => {
         setCart({});
         setNotes("");
@@ -90,19 +107,41 @@ export function OrderEntry({
         setPickTable(true);
         // Print right here (no page change), so the next order can start straight away.
         if (r.receipt) {
-          setLastReceipt(r.receipt);
-          if (printAfter) printReceipt(r.receipt, receiptSettings);
+          if (r.ticket === "receipt") setLastReceipt(r.receipt);
+          if (printAfter) printReceipt(r.receipt, receiptSettings, r.ticket ?? "receipt");
         }
+        // Open bills change: refresh the list, and leave "add to bill" mode.
+        if (r.ticket !== "receipt") router.push(addTo ? `/bills/${encodeURIComponent(addTo.order_id)}` : "/order");
+        else router.refresh();
       },
     );
 
   return (
     <div className="stack" style={{ paddingBottom: 150 }}>
       <div className="spread">
-        <h1 style={{ margin: 0 }}>{isUber ? "New Uber order" : "New order"}</h1>
+        <h1 style={{ margin: 0 }}>{addTo ? `Add to ${addTo.label}` : isUber ? "New Uber order" : "New order"}</h1>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: 160 }} aria-label="Order date" />
       </div>
 
+      {addToMissing && <div className="errors">That bill is no longer open (paid or voided). This is a new order.</div>}
+      {addTo ? (
+        <div className="card add-to">
+          <div className="spread"><b>🧾 {addTo.label} · open bill</b><Link href={`/bills/${encodeURIComponent(addTo.order_id)}`} className="small">Back to bill</Link></div>
+          <div className="small muted">Already ordered: {addTo.lines.map((l) => `${l.qty}× ${l.name}`).join(", ")} · {rs(addTo.total)}</div>
+          <div className="small">Pick the new items below, then <b>Add to bill</b>. Only the new items go to the kitchen.</div>
+        </div>
+      ) : (
+      <>
+      {openBills.length > 0 && (
+        <div className="open-bills" role="list" aria-label="Open bills">
+          <Link href="/bills" className="small" style={{ fontWeight: 700 }}>🧾 Open bills ({openBills.length})</Link>
+          {openBills.map((b) => (
+            <Link key={b.order_id} role="listitem" href={`/bills/${encodeURIComponent(b.order_id)}`} className="bill-chip">
+              {b.label} · {rs(b.total)}
+            </Link>
+          ))}
+        </div>
+      )}
       <div className="seg channel" role="group" aria-label="Order type">
         {ORDER_TYPES.map((t) => (
           <button key={t} type="button" className={`${type === t ? "on" : ""} ${t === "Uber" && type === t ? "uber" : ""}`} aria-pressed={type === t} onClick={() => chooseType(t)}>
@@ -124,9 +163,11 @@ export function OrderEntry({
               <span className={`area-name area-${i}`}>{a.name}</span>
               <div className="table-row">
                 {a.tables.map((t) => (
-                  <button key={t} type="button" className={`table-chip area-${i} ${table === t ? "on" : ""}`} aria-pressed={table === t} aria-label={t}
-                    onClick={() => { setTable(t); setPickTable(false); }}>
+                  <button key={t} type="button" className={`table-chip area-${i} ${table === t ? "on" : ""} ${busy[t] ? "busy" : ""}`} aria-pressed={table === t}
+                    aria-label={busy[t] ? `${t} – has an open bill, open it` : t}
+                    onClick={() => (busy[t] ? router.push(`/bills/${encodeURIComponent(busy[t])}`) : (setTable(t), setPickTable(false)))}>
                     {t.slice(a.name.length).trim() || t}
+                    {busy[t] && <span className="busy-dot">open</span>}
                   </button>
                 ))}
               </div>
@@ -135,6 +176,8 @@ export function OrderEntry({
         </div>
       ))}
       {type === "Take-away" && <div className="pack-note small">📦 Take-away – the kitchen packs this order.</div>}
+      </>
+      )}
       {isUber && (
         <div className="uber-note small">
           Uber prices = menu price + {uberSettings.uber_markup_pct}%. Paid to <b>Bank</b>. Uber commission ({uberSettings.uber_commission_pct}% of the total) is saved as a daily cost automatically.
@@ -187,7 +230,7 @@ export function OrderEntry({
           {showCart && (
             <div className="stack" style={{ maxHeight: "45vh", overflowY: "auto" }}>
               <div className="spread cart-head">
-                <b>{ORDER_TYPE_ICON[type]} {type === "Dine-in" ? table || "Pick a table" : type === "Take-away" ? "Take-away · pack" : "Uber · pack"}</b>
+                <b>{addTo ? `🧾 Add to ${addTo.label}` : `${ORDER_TYPE_ICON[type]} ${type === "Dine-in" ? table || "Pick a table" : type === "Take-away" ? "Take-away · pack" : "Uber · pack"}`}</b>
                 <button type="button" className="small" onClick={() => setShowCart(false)} aria-label="Hide the order review to add more items">▾ Hide · add more items</button>
               </div>
               {lines.map((l) => (
@@ -206,7 +249,7 @@ export function OrderEntry({
               ))}
               <input placeholder="Notes (table, guest, discount reason…)" value={notes} onChange={(e) => setNotes(e.target.value)} />
               <label className="row small"><input type="checkbox" checked={printAfter} onChange={(e) => togglePrint(e.target.checked)} /> Print receipt after saving</label>
-              {isUber ? (
+              {addTo ? null : isUber ? (
                 <div className="uber-note sum small">
                   <div className="spread"><span>Uber order total</span><b>{rs(total)}</b></div>
                   <div className="spread"><span>Uber commission {uberSettings.uber_commission_pct}% → daily cost (Bank)</span><b>− {rs(commission)}</b></div>
@@ -227,9 +270,23 @@ export function OrderEntry({
               <b>{rs(total)}</b>
             </button>
             {count > 0 && !showCart && <button type="button" onClick={() => setCart({})} className="small">Clear</button>}
-            <button type="button" className="primary" disabled={!count || pending || (showCart && needsTable)} onClick={() => (showCart ? submit() : setShowCart(true))} style={{ flex: 1 }}>
-              {pending ? "Saving…" : showCart ? (needsTable ? "Pick a table first" : `Save · ${isUber ? "Uber" : pay}`) : "Review"}
-            </button>
+            {!showCart || pending ? (
+              <button type="button" className="primary" disabled={!count || pending} onClick={() => setShowCart(true)} style={{ flex: 1 }}>
+                {pending ? "Saving…" : "Review"}
+              </button>
+            ) : addTo ? (
+              <button type="button" className="primary" onClick={() => submit(true)} style={{ flex: 1 }}>🍳 Add to bill · send to kitchen</button>
+            ) : needsTable ? (
+              <button type="button" className="primary" disabled style={{ flex: 1 }}>Pick a table first</button>
+            ) : isUber ? (
+              <button type="button" className="primary" onClick={() => submit(false)} style={{ flex: 1 }}>Save · Uber</button>
+            ) : (
+              // Dine-in usually pays after eating (open bill); take-away usually pays now. Both are offered.
+              <div className="row" style={{ flex: 1.6, gap: 6 }}>
+                <button type="button" className={type === "Dine-in" ? "primary" : ""} onClick={() => submit(true)} style={{ flex: 1 }}>🍳 Kitchen · pay later</button>
+                <button type="button" className={type === "Dine-in" ? "" : "primary"} onClick={() => submit(false)} style={{ flex: 1 }}>Pay now · {pay}</button>
+              </div>
+            )}
           </div>
         </div>
       </div>

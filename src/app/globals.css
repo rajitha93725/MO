@@ -285,6 +285,9 @@ table.cal td.cal-booked a { display: flex; align-items: center; justify-content:
 .receipt .r-row { display: flex; justify-content: space-between; gap: 8px; }
 .receipt .r-total { font-weight: 700; font-size: 15px; }
 .receipt .r-small { font-size: 11px; color: #333; }
+.receipt .k-qty { font-size: 16px; font-weight: 800; width: 44px; white-space: nowrap; }
+.receipt .k-item { font-size: 16px; font-weight: 700; }
+.receipt .k-note { font-size: 14px; font-weight: 700; }
 .receipt .r-service { text-align: center; font-size: 18px; font-weight: 800; letter-spacing: 0.04em; padding: 4px 0; }
 @media print {
   .receipt { border: 0; padding: 0; border-radius: 0; }
@@ -404,3 +407,15 @@ table.cal td.cal-booked a { display: flex; align-items: center; justify-content:
 .badge.table.area-0 { background: #1d63c9; color: #fff; }
 .badge.table.area-1 { background: #1a8a4a; color: #fff; }
 .badge.table.area-2 { background: #7a3fc4; color: #fff; }
+
+/* ---------- open bills ---------- */
+.open-bills { display: flex; gap: 6px; overflow-x: auto; align-items: center; padding-bottom: 2px; }
+.bill-chip { white-space: nowrap; padding: 7px 12px; border-radius: 999px; background: var(--warn-soft); color: var(--warn); font-weight: 700; font-size: 0.85rem; text-decoration: none; border: 1px solid var(--warn); }
+.table-chip { position: relative; flex-direction: column; gap: 0; line-height: 1.05; }
+.table-chip.busy { background-image: repeating-linear-gradient(135deg, transparent 0 6px, rgba(0,0,0,.07) 6px 8px); }
+.busy-dot { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px; }
+.open-bills-banner { border-color: var(--warn); background: var(--warn-soft); }
+.add-to { border-color: var(--warn); background: var(--warn-soft); display: grid; gap: 4px; }
+.bill-line { flex-wrap: wrap; }
+.bill-line.void { text-decoration: line-through; color: var(--muted); }
+.void-box { border: 2px solid var(--bad); }

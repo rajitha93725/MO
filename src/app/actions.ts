@@ -7,7 +7,7 @@ import { V, ValidationError } from "@/lib/validate";
 import { today, nowTime } from "@/lib/today";
 import { parsePartners, parseSettings } from "@/lib/settings";
 import {
-  ORDER_TYPES, ACCOUNTS, CAFE_ACCOUNTS, VILLA_ACCOUNTS, CAFE_MOVEMENT_TYPES, TRANSFERS, movementAccounts, ALL_ROOMS, BOOKING_STATUSES, CAPITAL_BUSINESSES, CAPITAL_PAID_INTO, MEALS, MOVED_BY, MOVEMENT_TYPES, PAID_BY,
+  ORDER_TYPES, VOID_REASONS, orderTypeOf, ACCOUNTS, CAFE_ACCOUNTS, VILLA_ACCOUNTS, CAFE_MOVEMENT_TYPES, TRANSFERS, movementAccounts, ALL_ROOMS, BOOKING_STATUSES, CAPITAL_BUSINESSES, CAPITAL_PAID_INTO, MEALS, MOVED_BY, MOVEMENT_TYPES, PAID_BY,
   PAYMENT_METHODS, PAYOUT_STATUSES, type OrderChannel, PRIORITIES, type CapitalContribution,
   isVillaTodo, type DailyCost, type FixedCost, type FixedPayment, type MenuItem, type OrderLine, type TargetPeriod, type Todo, type VillaRecord,
 } from "@/lib/types";
@@ -16,21 +16,25 @@ import { receiptItemName, type ReceiptOrder } from "@/lib/receipt";
 import { mealForTime } from "@/lib/calc/meal";
 import { buildUsers, type UserForm } from "@/lib/users";
 import { capitalAccountAllowed } from "@/lib/calc/capital";
-import { hashPassword } from "@/lib/password";
+import { hashPassword, loginLocked, recordLogin, verifyPassword } from "@/lib/password";
+import { groupBills, nextLineNo } from "@/lib/calc/bills";
 import { UBER_COST_CATEGORY, uberCommission, uberCostId, uberPrice } from "@/lib/calc/uber";
 
 export type ActionResult =
-  | { ok: true; message?: string; id?: string; receipt?: ReceiptOrder }
+  | { ok: true; message?: string; id?: string; receipt?: ReceiptOrder; ticket?: PrintKind }
   | { ok: false; errors: string[] };
 
+/** What to print after an order action: the customer receipt or a kitchen ticket. */
+export type PrintKind = "receipt" | "kitchen" | "kitchen-addon";
+
 async function run(
-  fn: () => Promise<string | void | { message: string; id: string; receipt?: ReceiptOrder }>,
+  fn: () => Promise<string | void | { message: string; id: string; receipt?: ReceiptOrder; ticket?: PrintKind }>,
   paths: string[] = ["/"],
 ): Promise<ActionResult> {
   try {
     const r = (await fn()) ?? undefined;
     for (const p of paths) revalidatePath(p, "layout");
-    return typeof r === "object" ? { ok: true, message: r.message, id: r.id, receipt: r.receipt } : { ok: true, message: r };
+    return typeof r === "object" ? { ok: true, message: r.message, id: r.id, receipt: r.receipt, ticket: r.ticket } : { ok: true, message: r };
   } catch (e) {
     if (e instanceof ValidationError) return { ok: false, errors: e.errors };
     return { ok: false, errors: [e instanceof Error ? e.message : String(e)] };
@@ -51,6 +55,24 @@ export interface OrderInput {
   notes?: string;
   date?: string;
   lines: { item_id: string; qty: number }[];
+  /** true = open bill: send to the kitchen now, pay later (not for Uber). */
+  open?: boolean;
+  /** Add these items to this open bill (its type, table and date are kept). */
+  bill_id?: string;
+}
+
+/** Receipt data for some order lines (sub-category in front of each name). */
+function receiptFor(lines: OrderLine[], menu: MenuItem[], extra: Partial<ReceiptOrder> = {}): ReceiptOrder {
+  const o = lines[0];
+  return {
+    order_id: o.order_id, date: o.date, time: o.time, meal: o.meal, payment_method: o.payment_method,
+    notes: lines.find((l) => l.notes)?.notes ?? "", order_type: orderTypeOf(o), table_no: o.table_no,
+    lines: lines.map((r) => ({
+      item_name: receiptItemName(r.item_name, menu.find((m) => m.item_id === r.item_id)?.sub_category),
+      qty: r.qty, unit_price: r.unit_price, line_total: r.line_total,
+    })),
+    ...extra,
+  };
 }
 
 export async function saveOrder(input: OrderInput): Promise<ActionResult> {
@@ -58,20 +80,30 @@ export async function saveOrder(input: OrderInput): Promise<ActionResult> {
     const user = await requireAction("any");
     const settings = await repo.settings();
     const v = new V();
-    const order_type = v.oneOf("Order type", input.order_type || (input.channel === "Uber" ? "Uber" : ""), ORDER_TYPES);
+    const all = await repo.orderLines();
+    // Adding to an open bill: type, table and date come from the bill.
+    const bill = input.bill_id ? groupBills(all.filter((l) => l.order_id === input.bill_id))[0] : undefined;
+    if (input.bill_id && (!bill || bill.status !== "Open")) throw new Error("This bill is not open any more (paid or voided).");
+    const order_type = bill ? bill.order_type || "Take-away" : v.oneOf("Order type", input.order_type || (input.channel === "Uber" ? "Uber" : ""), ORDER_TYPES);
     const uber = order_type === "Uber";
-    const table_no = order_type === "Dine-in" ? v.oneOf("Table", input.table_no, settings.dining_areas.flatMap((a) => a.tables)) : "";
-    const payment_method = uber ? "Uber" : v.oneOf("Payment method", input.payment_method, PAYMENT_METHODS);
-    const date = v.date("Date", input.date || today(settings));
+    const open = Boolean(bill) || (Boolean(input.open) && !uber);
+    const table_no = bill ? bill.table_no : order_type === "Dine-in" ? v.oneOf("Table", input.table_no, settings.dining_areas.flatMap((a) => a.tables)) : "";
+    const payment_method = open ? "" : uber ? "Uber" : v.oneOf("Payment method", input.payment_method, PAYMENT_METHODS);
+    const date = bill ? bill.date : v.date("Date", input.date || today(settings));
     v.check(input.lines.length > 0, "Add at least one item");
     input.lines.forEach((l, i) => v.qty(`Quantity (line ${i + 1})`, l.qty));
+    if (!bill && open && table_no) {
+      const busy = groupBills(all).find((b) => b.status === "Open" && b.table_no === table_no);
+      v.check(!busy, `${table_no} already has an open bill – add the items to that bill instead`);
+    }
     v.done();
 
     const menu = await repo.menu();
-    const order_id = newId("ORD");
+    const order_id = bill ? bill.order_id : newId("ORD");
     const time = nowTime(settings);
     // The meal is not chosen on screen: it is logged from the time, for reports.
-    const meal = mealForTime(time);
+    const meal = bill ? bill.lines[0]?.meal ?? mealForTime(time) : mealForTime(time);
+    const firstNo = bill ? nextLineNo(all, order_id) : 1;
     const rows: OrderLine[] = input.lines.map((l, i) => {
       const m = menu.find((x) => x.item_id === l.item_id);
       if (!m) throw new ValidationError([`Unknown menu item ${l.item_id}`]);
@@ -79,26 +111,28 @@ export async function saveOrder(input: OrderInput): Promise<ActionResult> {
       // Snapshot price & cost at the moment of saving. Uber orders use the Uber price.
       const price = uber ? uberPrice(m.selling_price, settings) : m.selling_price;
       return {
-        line_id: `${order_id}-${i + 1}`,
+        line_id: `${order_id}-${firstNo + i}`,
         order_id, date, time, meal,
         item_id: m.item_id, item_name: m.item_name, qty: l.qty,
         unit_price: price, line_total: l.qty * price,
         unit_cost: m.unit_cost, line_cost: l.qty * m.unit_cost,
-        payment_method, notes: (input.notes ?? "").trim(), entered_by: user.email,
-        order_type, table_no,
+        payment_method: payment_method as OrderLine["payment_method"], notes: (input.notes ?? "").trim(), entered_by: user.email,
+        order_type: order_type as OrderLine["order_type"], table_no, status: open ? "Open" : "Paid", void_by: "", void_reason: "",
       };
     });
     await repo.insert("orders", rows);
     const total = rows.reduce((t, r) => t + r.line_total, 0);
     const fmt = (n: number) => `Rs ${n.toLocaleString("en-US")}`;
+    const where = order_type === "Dine-in" ? table_no : order_type.toLowerCase();
+    if (open) {
+      // Kitchen ticket with just these items.
+      const receipt = receiptFor(rows, menu, { status: "Open" });
+      return bill
+        ? { message: `Added to ${where} · ${fmt(total)} more`, id: order_id, receipt, ticket: "kitchen-addon" }
+        : { message: `Open bill · ${where} · sent to kitchen`, id: order_id, receipt, ticket: "kitchen" };
+    }
     // Everything needed to print the receipt straight away, without reading the order back.
-    const receipt: ReceiptOrder = {
-      order_id, date, time, meal, payment_method, notes: rows[0].notes, order_type, table_no,
-      lines: rows.map((r) => ({
-        item_name: receiptItemName(r.item_name, menu.find((m) => m.item_id === r.item_id)?.sub_category),
-        qty: r.qty, unit_price: r.unit_price, line_total: r.line_total,
-      })),
-    };
+    const receipt = receiptFor(rows, menu);
     if (uber) {
       const commission = uberCommission(total, settings);
       const cost: DailyCost = {
@@ -113,16 +147,88 @@ export async function saveOrder(input: OrderInput): Promise<ActionResult> {
         entered_by: user.email,
       };
       if (commission > 0) await repo.insert("dailyCosts", [cost]);
-      return { message: `Uber order saved · ${fmt(total)} · commission ${fmt(commission)} recorded`, id: order_id, receipt };
+      return { message: `Uber order saved · ${fmt(total)} · commission ${fmt(commission)} recorded`, id: order_id, receipt, ticket: "receipt" };
     }
-    return { message: `Order saved · ${fmt(total)}`, id: order_id, receipt };
+    return { message: `Order saved · ${fmt(total)}`, id: order_id, receipt, ticket: "receipt" };
+  });
+}
+
+/** Take payment for an open bill: all its lines become Paid (and count in sales and cash from now). */
+export async function payBill(order_id: string, payment_method: string): Promise<ActionResult> {
+  return run(async () => {
+    await requireAction("any");
+    const v = new V();
+    const method = v.oneOf("Payment method", payment_method, PAYMENT_METHODS);
+    v.done();
+    const lines = (await repo.orderLines()).filter((l) => l.order_id === order_id);
+    const bill = groupBills(lines)[0];
+    if (!bill || bill.status !== "Open") throw new Error("This bill is not open (already paid or voided).");
+    for (const l of bill.lines) await repo.update("orders", l.line_id, { status: "Paid", payment_method: method });
+    const menu = await repo.menu();
+    const paid = bill.lines.map((l) => ({ ...l, status: "Paid" as const, payment_method: method }));
+    return { message: `Paid · Rs ${bill.total.toLocaleString("en-US")} · ${method}`, id: order_id, receipt: receiptFor(paid, menu), ticket: "receipt" };
+  });
+}
+
+export interface VoidInput {
+  order_id: string;
+  /** One line, or "" for the whole bill. */
+  line_id: string;
+  /** How many of that line to void (default: all). */
+  qty?: number;
+  reason: string;
+  note?: string;
+  /** Name of the partner who authorises, and their password. */
+  authorised_by: string;
+  password: string;
+}
+
+/**
+ * Void (cancel) items on an open bill. Needs the password of a partner (Settings → Users), so items are not
+ * removed without a manager. Voided items stay on record with who authorised it and why; they never count.
+ */
+export async function voidItems(input: VoidInput): Promise<ActionResult> {
+  return run(async () => {
+    await requireAction("any");
+    const v = new V();
+    const reason = v.oneOf("Reason", input.reason, VOID_REASONS);
+    if (reason === "Other") v.required("What happened", input.note);
+    v.done();
+    const key = `void:${(input.authorised_by ?? "").toLowerCase()}`;
+    if (loginLocked(key)) throw new Error("Too many wrong passwords. Wait 10 minutes and try again.");
+    const users = await repo.users();
+    const auth = users.find((u) => u.role === "partner" && u.password_hash && (u.name === input.authorised_by || u.email === input.authorised_by));
+    const ok = await verifyPassword(input.password ?? "", auth?.password_hash || undefined);
+    recordLogin(key, ok);
+    if (!auth || !ok) throw new Error("Wrong password – a partner must enter their own password to void.");
+
+    const all = await repo.orderLines();
+    const bill = groupBills(all.filter((l) => l.order_id === input.order_id))[0];
+    if (!bill || bill.status !== "Open") throw new Error("Only items on an open bill can be voided.");
+    const why = input.note?.trim() ? `${reason}: ${input.note.trim()}` : reason;
+    const targets = input.line_id ? bill.lines.filter((l) => l.line_id === input.line_id) : bill.lines;
+    if (!targets.length) throw new Error("That item is not on the bill.");
+    let next = nextLineNo(all, bill.order_id);
+    for (const l of targets) {
+      const n = input.line_id && input.qty ? Math.floor(input.qty) : l.qty;
+      if (!(n >= 1 && n <= l.qty)) throw new Error(`Void 1 to ${l.qty} of ${l.item_name}`);
+      if (n === l.qty) {
+        await repo.update("orders", l.line_id, { status: "Void", void_by: auth.name, void_reason: why });
+      } else {
+        // Part of a line: keep the rest on the bill, record the voided part as its own line.
+        const left = l.qty - n;
+        await repo.update("orders", l.line_id, { qty: left, line_total: left * l.unit_price, line_cost: left * l.unit_cost });
+        await repo.insert("orders", [{ ...l, line_id: `${l.order_id}-${next++}`, qty: n, line_total: n * l.unit_price, line_cost: n * l.unit_cost, status: "Void", void_by: auth.name, void_reason: why }]);
+      }
+    }
+    return input.line_id ? `Voided · authorised by ${auth.name}` : `Whole bill voided · authorised by ${auth.name}`;
   });
 }
 
 export async function deleteOrder(order_id: string): Promise<ActionResult> {
   return run(async () => {
     await requireAction("partner");
-    const lines = (await repo.orders()).filter((o) => o.order_id === order_id);
+    const lines = (await repo.orderLines()).filter((o) => o.order_id === order_id);
     for (const l of lines) await repo.remove("orders", l.line_id);
     // An Uber order's commission goes with it.
     if (lines.some((l) => l.payment_method === "Uber")) {

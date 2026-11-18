@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { billLabel, openBills } from "@/lib/calc/bills";
 import { requirePage } from "@/lib/auth";
 import { repo } from "@/lib/data/repo";
 import { today } from "@/lib/today";
@@ -71,6 +72,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     closed: r.closed,
   }));
 
+  const bills = openBills(data.orderLines);
   const nextTodos = activeTodos(user.owner ? todos : todos.filter((td) => !isVillaTodo(td))).slice(0, 5);
   const unpaid = unpaidFixedCosts(month, fixedCosts, fixedPayments, settings);
   const isPartner = user.role === "partner";
@@ -84,6 +86,12 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <h1 style={{ margin: 0 }}>Today · {t}</h1>
         <Link href="/order" className="btn primary">+ New order</Link>
       </div>
+      {bills.length > 0 && (
+        <Link href="/bills" className="card spread open-bills-banner" style={{ textDecoration: "none", color: "inherit" }}>
+          <span>🧾 <b>{bills.length} open bill{bills.length === 1 ? "" : "s"}</b> · not paid yet · {bills.map((b) => billLabel(b)).join(", ")}</span>
+          <b className="num">{rs(bills.reduce((a, b) => a + b.total, 0))} →</b>
+        </Link>
+      )}
 
       {isOwner && (
         <>

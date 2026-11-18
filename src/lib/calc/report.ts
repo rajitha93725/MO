@@ -109,7 +109,7 @@ export function groupOrders(lines: OrderLine[]): ReportOrder[] {
       date: ls[0].date,
       time: ls[0].time,
       meal: ls[0].meal,
-      payment_method: ls[0].payment_method,
+      payment_method: ls[0].payment_method as PaymentMethod,
       order_type: orderTypeOf(ls[0]) || "Not recorded",
       table_no: ls[0].table_no ?? "",
       items: ls.map((l) => `${l.qty}× ${l.item_name}`).join(", "),

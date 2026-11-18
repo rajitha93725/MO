@@ -19,6 +19,8 @@ export interface ReceiptOrder {
   /** Dine-in / Take-away / Uber, printed big for the kitchen (missing on old orders). */
   order_type?: string;
   table_no?: string;
+  /** "Open" = bill shown before payment (prints "NOT PAID"). */
+  status?: string;
 }
 
 /** Kitchen line: where the food goes. */
@@ -57,11 +59,29 @@ export function receiptHtml(o: ReceiptOrder, s: ReceiptSettings): string {
     `<table><tbody>${rows}</tbody></table>`,
     `<div class="r-rule"></div>`,
     `<div class="r-row r-total"><span>TOTAL (Rs)</span><span>${n(total)}</span></div>`,
-    `<div class="r-row"><span>Paid by</span><span>${esc(o.payment_method)}</span></div>`,
+    o.status === "Open"
+      ? `<div class="r-row"><span>Payment</span><span><b>NOT PAID YET</b></span></div>`
+      : `<div class="r-row"><span>Paid by</span><span>${esc(o.payment_method)}</span></div>`,
     `<div class="r-row"><span>Items</span><span>${n(items)}</span></div>`,
     o.notes ? `<div class="r-small">Note: ${esc(o.notes)}</div>` : "",
     `<div class="r-rule"></div>`,
     s.receipt_footer ? `<div class="r-center">${esc(s.receipt_footer)}</div>` : "",
+  ].join("");
+}
+
+/**
+ * Kitchen ticket: where it goes and what to make, no prices. `addOn` = items added to a bill that is already open.
+ */
+export function kitchenTicketHtml(o: ReceiptOrder, addOn = false): string {
+  const rows = o.lines.map((l) => `<tr><td class="k-qty">${n(l.qty)} ×</td><td class="k-item">${esc(l.item_name)}</td></tr>`).join("");
+  return [
+    `<div class="r-center r-title">KITCHEN${addOn ? " · ADD-ON" : ""}</div>`,
+    `<div class="r-rule"></div>`,
+    serviceLine(o) ? `<div class="r-service">${esc(serviceLine(o))}</div>` : "",
+    `<div class="r-row"><span>${esc(o.date)} ${esc(o.time)}</span><span>${esc(o.order_id.slice(-4))}</span></div>`,
+    `<div class="r-rule"></div>`,
+    `<table><tbody>${rows}</tbody></table>`,
+    o.notes ? `<div class="r-rule"></div><div class="k-note">Note: ${esc(o.notes)}</div>` : "",
   ].join("");
 }
 

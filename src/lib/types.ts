@@ -24,6 +24,14 @@ export function orderTypeOf(o: { order_type?: string; payment_method: string }):
   return o.payment_method === "Uber" ? "Uber" : "";
 }
 
+/**
+ * Order line status. Open = sent to the kitchen, not paid yet (an open bill); Paid = counted in sales and cash;
+ * Void = cancelled item (kept for the record, never counted). Lines saved before statuses existed are "" = Paid.
+ */
+export type OrderStatus = "Open" | "Paid" | "Void";
+export const isPaidLine = (l: { status?: string }) => !l.status || l.status === "Paid";
+export const VOID_REASONS = ["Customer cancelled", "Wrong item entered", "Kitchen problem", "Other"] as const;
+
 /** Dine-in tables of one area (Settings: dining_tables), e.g. Upstairs → "Upstairs 1" … "Upstairs 5". */
 export interface DiningArea {
   name: string;
@@ -96,13 +104,19 @@ export interface OrderLine {
   line_total: number;
   unit_cost: number; // snapshot at save time
   line_cost: number;
-  payment_method: PaymentMethod;
+  /** "" while the bill is open (not paid yet). */
+  payment_method: PaymentMethod | "";
   notes: string;
   entered_by: string;
   /** Dine-in / Take-away / Uber ("" on orders saved before this existed). */
   order_type: OrderType | "";
   /** Dine-in table, e.g. "Garden 2" ("" otherwise). */
   table_no: string;
+  /** Open (bill not paid yet) / Paid / Void ("" = Paid, saved before statuses existed). */
+  status: OrderStatus | "";
+  /** Voided lines: who authorised it and why. */
+  void_by: string;
+  void_reason: string;
 }
 
 export interface DailyCost {

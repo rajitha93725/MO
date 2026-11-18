@@ -110,6 +110,7 @@ Written automatically whenever a partner changes an item's cost or price.
 | line_total | qty × unit_price |
 | line_cost | qty × unit_cost |
 | payment_method | Cash / Card / Bank transfer (Uber orders: Uber) |
+| status, void_by, void_reason | Open (bill not paid yet) / Paid / Void, and for voids who authorised it and why |
 | order_type, table_no | Dine-in (with a table like "Garden 2") / Take-away / Uber |
 | notes | Free text |
 | line_id | Unique key of the row |
@@ -217,7 +218,7 @@ tests/                      unit tests (profit, cash, daily, validation, CSV)
 ```bash
 npm test
 ```
-145 tests cover the profit formulas, fixed-cost allocation (monthly, closed months, one-time full or spread), planned vs actual, partner split and rounding, YTD, cash and bank balances, transfers, the low-cash warning, the daily view, to-do urgency, validation, CSV escaping, the Supabase store and schema, passwords and the Users list, and MO Villa (nights, commission and payout, splitting stays across months, double booking, monthly villa profit, occupancy, per-room profit, cash and combined profit).
+157 tests cover the profit formulas, fixed-cost allocation (monthly, closed months, one-time full or spread), planned vs actual, partner split and rounding, YTD, cash and bank balances, transfers, the low-cash warning, the daily view, to-do urgency, validation, CSV escaping, the Supabase store and schema, passwords and the Users list, and MO Villa (nights, commission and payout, splitting stays across months, double booking, monthly villa profit, occupancy, per-room profit, cash and combined profit).
 
 ---
 
@@ -335,7 +336,23 @@ The order screen starts with three buttons: **🍽️ Dine-in**, **📦 Take-awa
 - The receipt prints a big kitchen line under the name: `DINE-IN · Garden 2`, `TAKE-AWAY · PACK` or `UBER · PACK`.
 - Orders store `order_type` and `table_no`. Sales shows a coloured table badge, 📦 or 🛵; the monthly report has **By order type** (orders and sales) and a Type column in Order details. Orders saved before this show as "Not recorded" (Uber ones are still recognised).
 
-## 14. Public menu card
+## 14. Open bills (order now, pay after eating)
+
+- On **New order → Review** there are two ways to save: **🍳 Kitchen · pay later** (an *open bill*; the default for
+  dine-in) and **Pay now** (the default for take-away). Uber orders are always paid at once.
+- An open bill prints a **kitchen ticket** (items and table, no prices) and shows up in the 🧾 **Open bills** strip on
+  the order screen, on Home and under **More → Open bills**. A dine-in table with an open bill is marked *open*;
+  tapping it opens that bill, so the same table never gets two bills by mistake.
+- On the bill: **+ Add items** (only the new items go to the kitchen, as an *ADD-ON* ticket), **🖨 Print bill**
+  (shows *NOT PAID YET*), and **Customer pays**: choose Cash / Card / Bank transfer → **Review payment** → **✓ Paid**,
+  which prints the receipt.
+- **Void** (one item, part of a line, or the whole bill) needs a **partner's password** (Settings → Users) and a
+  reason. Voided items stay on the bill, crossed out, with who authorised it and why; the monthly report lists them
+  under **Voided items**. After 5 wrong passwords, voiding is locked for 10 minutes.
+- Open and voided lines never count as sales, cash or profit; a bill counts when it is paid (on the day it was opened).
+  Orders: `status` = Open / Paid / Void (empty = Paid for older orders), `void_by`, `void_reason`.
+
+## 15. Public menu card
 
 **/menu** is the menu for guests: share the link or put it in a QR code. No sign-in needed. Tabs: **Beverage**, **Brunch**,
 **All Day** (from the menu categories; any other category gets its own tab). Only active items are shown, with name,

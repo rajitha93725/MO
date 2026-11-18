@@ -58,6 +58,9 @@ alter table public.orders add column if not exists "notes" text not null default
 alter table public.orders add column if not exists "entered_by" text not null default '';
 alter table public.orders add column if not exists "order_type" text not null default '';
 alter table public.orders add column if not exists "table_no" text not null default '';
+alter table public.orders add column if not exists "status" text not null default '';
+alter table public.orders add column if not exists "void_by" text not null default '';
+alter table public.orders add column if not exists "void_reason" text not null default '';
 create index if not exists orders_seq_idx on public.orders (seq);
 alter table public.orders enable row level security;
 revoke all on public.orders from anon, authenticated;

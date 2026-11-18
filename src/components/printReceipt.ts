@@ -1,13 +1,13 @@
 "use client";
 
-import { receiptHtml, receiptPageCss, type ReceiptOrder, type ReceiptSettings } from "@/lib/receipt";
+import { kitchenTicketHtml, receiptHtml, receiptPageCss, type ReceiptOrder, type ReceiptSettings } from "@/lib/receipt";
 
 /**
  * Print a receipt without leaving the current screen.
  * The receipt is placed in a print-only box; while printing, everything else on the page is hidden.
  * The box is removed when the print dialog closes.
  */
-export function printReceipt(order: ReceiptOrder, settings: ReceiptSettings) {
+export function printReceipt(order: ReceiptOrder, settings: ReceiptSettings, kind: "receipt" | "kitchen" | "kitchen-addon" = "receipt") {
   document.getElementById("bg-print")?.remove();
   document.getElementById("bg-print-style")?.remove();
 
@@ -24,7 +24,7 @@ export function printReceipt(order: ReceiptOrder, settings: ReceiptSettings) {
     }`;
   const box = document.createElement("div");
   box.id = "bg-print";
-  box.innerHTML = `<div class="receipt">${receiptHtml(order, settings)}</div>`;
+  box.innerHTML = `<div class="receipt">${kind === "receipt" ? receiptHtml(order, settings) : kitchenTicketHtml(order, kind === "kitchen-addon")}</div>`;
   document.head.appendChild(style);
   document.body.appendChild(box);
 

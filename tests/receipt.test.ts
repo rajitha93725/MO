@@ -52,3 +52,17 @@ describe("kitchen line on the receipt", () => {
     expect(h).toContain('<div class="r-service">DINE-IN · Upstairs 3</div>');
   });
 });
+
+describe("open bill printing", () => {
+  it("bill before payment says NOT PAID; kitchen ticket has items but no prices", async () => {
+    const { kitchenTicketHtml } = await import("../src/lib/receipt");
+    const o = { ...order, status: "Open", order_type: "Dine-in", table_no: "Garden 2" };
+    expect(receiptHtml(o, settings)).toContain("NOT PAID YET");
+    expect(receiptHtml(o, settings)).not.toContain("Paid by");
+    const k = kitchenTicketHtml(o, true);
+    expect(k).toContain("KITCHEN · ADD-ON");
+    expect(k).toContain("DINE-IN · Garden 2");
+    expect(k).toContain("Chicken Caesar salad");
+    expect(k).not.toContain("1,950");
+  });
+});

@@ -5,6 +5,7 @@ import type {
   CashMovement, DailyCost, FixedCost, FixedPayment, MenuItem, OrderLine, PriceHistory, Settings, SettingRow, TargetPeriod, Todo, UserRow, VillaRecord, CapitalContribution,
 } from "../types";
 import { parseSettings } from "../settings";
+import { isPaidLine } from "../types";
 import { villaRowAccounts } from "../calc/cash";
 
 // Typed repository used by pages and server actions. Everything storage-specific stays behind getStore().
@@ -16,8 +17,11 @@ const row = (o: object) => o as unknown as Row;
 export const repo = {
   menu: async () => as<MenuItem>(await getStore().list("menu")),
   priceHistory: async () => as<PriceHistory>(await getStore().list("priceHistory")),
-  orders: async () => as<OrderLine>(await getStore().list("orders")),
-  /** Orders read without the cache. */
+  /** Every order line, including open bills and voided items. */
+  orderLines: async () => as<OrderLine>(await getStore().list("orders")),
+  /** Paid order lines only: what counts as sales, cash and profit everywhere. */
+  orders: async () => as<OrderLine>(await getStore().list("orders")).filter(isPaidLine),
+  /** All order lines read without any cache. */
   ordersFresh: async () => {
     const s = getStore();
     return as<OrderLine>(await (s.listFresh ? s.listFresh("orders") : s.list("orders")));
@@ -42,10 +46,12 @@ export const repo = {
 
   /** Everything the dashboard / profit / cash screens need, loaded in parallel. */
   async all() {
-    const [settings, menu, orders, dailyCosts, fixedCosts, fixedPayments, movements, todos, villa, capital] = await Promise.all([
-      this.settings(), this.menu(), this.orders(), this.dailyCosts(), this.fixedCosts(), this.fixedPayments(), this.movements(), this.todos(), this.villa(), this.capital(),
+    const [settings, menu, orderLines, dailyCosts, fixedCosts, fixedPayments, movements, todos, villa, capital] = await Promise.all([
+      this.settings(), this.menu(), this.orderLines(), this.dailyCosts(), this.fixedCosts(), this.fixedPayments(), this.movements(), this.todos(), this.villa(), this.capital(),
     ]);
-    return { settings, menu, orders, dailyCosts, fixedCosts, fixedPayments, movements, todos, villa, capital };
+    // `orders` = paid lines (sales); `orderLines` also has open bills and voided items.
+    const orders = orderLines.filter(isPaidLine);
+    return { settings, menu, orders, orderLines, dailyCosts, fixedCosts, fixedPayments, movements, todos, villa, capital };
   },
 
   insert: (tab: Parameters<ReturnType<typeof getStore>["insert"]>[0], rows: object[]) => getStore().insert(tab, rows.map(row)),
