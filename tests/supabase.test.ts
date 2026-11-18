@@ -19,7 +19,9 @@ function fakeFetch(respond: (c: Call) => unknown, status = 200) {
 
 describe("Supabase schema", () => {
   it("supabase/schema.sql is up to date (run npm run supabase:sql)", () => {
-    expect(readFileSync("supabase/schema.sql", "utf-8")).toBe(supabaseSchemaSql());
+    expect(readFileSync("supabase/schema.sql", "utf-8").replace(/
+/g, "
+")).toBe(supabaseSchemaSql());
   });
   it("has a table and every column for each tab, with row level security on", () => {
     const sql = supabaseSchemaSql();
