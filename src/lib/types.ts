@@ -178,6 +178,8 @@ export interface DailyCost {
   paid_by: PaidBy;
   notes: string;
   entered_by: string;
+  /** Sub-category within the category (Settings: cost_categories), "" when the category has none. */
+  sub_category: string;
 }
 
 export type Frequency = "Monthly" | "One-time";
@@ -349,6 +351,8 @@ export interface Settings {
   one_time_spread_months: number;
   fixed_profit_basis: FixedProfitBasis;
   cost_categories: string[];
+  /** Sub-categories per daily cost category ([] = none). */
+  cost_subcategories: Record<string, string[]>;
   food_check_categories: string[];
   todo_amber_days: number;
   timezone: string;

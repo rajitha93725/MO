@@ -51,7 +51,9 @@ function Input({ r }: { r: SettingRow }) {
         <option value="check_in">all in the check-in month</option>
       </select>
     );
-  if (["cost_categories", "food_check_categories", "villa_rooms", "villa_platforms", "villa_cost_categories"].includes(r.key))
+  if (r.key === "cost_categories")
+    return <textarea name={r.key} rows={8} defaultValue={r.value.replace(/;\s*/g, ";\n")} />;
+  if (["food_check_categories", "villa_rooms", "villa_platforms", "villa_cost_categories"].includes(r.key))
     return <textarea name={r.key} rows={3} defaultValue={r.value} />;
   const numeric = ["food_cost_target_pct", "food_cost_good_pct", "petty_low_threshold", "one_time_spread_months", "todo_amber_days"].includes(r.key);
   return <input name={r.key} defaultValue={r.value} inputMode={numeric ? "numeric" : undefined} />;

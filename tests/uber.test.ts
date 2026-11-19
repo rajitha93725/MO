@@ -48,7 +48,7 @@ describe("uberDay", () => {
     qty: 1, unit_price: 0, line_total: 0, unit_cost: 0, line_cost: 0, payment_method: "Cash", notes: "", entered_by: "", order_type: "", table_no: "", status: "", void_by: "", void_reason: "", invoice_no: "", item_note: "", addons: "", addons_total: 0, discount_type: "", discount_value: 0, discount_amount: 0, offer_text: "", printed_at: "", ...o,
   });
   const cost = (o: Partial<DailyCost>): DailyCost => ({
-    cost_id: "c", date: "2027-01-05", category: UBER_COST_CATEGORY, description: "", amount: 0, paid_from: "Bank", paid_by: "Business", notes: "", entered_by: "", ...o,
+    cost_id: "c", date: "2027-01-05", category: UBER_COST_CATEGORY, description: "", amount: 0, paid_from: "Bank", paid_by: "Business", notes: "", entered_by: "", sub_category: "", ...o,
   });
   it("sums Uber sales and commission for the day only", () => {
     const orders = [

@@ -88,6 +88,7 @@ alter table public.daily_costs add column if not exists "paid_from" text not nul
 alter table public.daily_costs add column if not exists "paid_by" text not null default '';
 alter table public.daily_costs add column if not exists "notes" text not null default '';
 alter table public.daily_costs add column if not exists "entered_by" text not null default '';
+alter table public.daily_costs add column if not exists "sub_category" text not null default '';
 create index if not exists daily_costs_seq_idx on public.daily_costs (seq);
 alter table public.daily_costs enable row level security;
 revoke all on public.daily_costs from anon, authenticated;

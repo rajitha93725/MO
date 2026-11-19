@@ -17,7 +17,8 @@ export default async function CostsPage({ searchParams }: { searchParams: Promis
         allCosts={costs}
         month={month}
         today={t}
-        categories={settings.cost_categories}
+        categories={settings.cost_categories.filter((c) => c !== "Uber commission")}
+        subcategories={settings.cost_subcategories}
         isPartner={user.role === "partner"}
       />
     );

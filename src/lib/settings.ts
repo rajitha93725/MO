@@ -17,10 +17,10 @@ export const DEFAULT_SETTING_ROWS: SettingRow[] = [
   { key: "fixed_profit_basis", value: "actual_when_paid", description: "planned = always use plan amount; actual_when_paid = use the recorded payment when one exists" },
   {
     key: "cost_categories",
-    value: "Food & ingredients,Drinks & beverages,Gas & fuel,Packaging,Cleaning,Transport,Repairs & maintenance,Other",
-    description: "Daily cost categories, comma separated",
+    value: "Fresh: Vegetables, Fruits, Herbs; Meat: Chicken, Prawns, Cuttlefish, Fish, Crab, Beef, Other; Dairy: Fresh milk, Mozzarella, Parmesan, Ice cream, Curd, Yoghurt; Dry food: Rice, Kottu, Penne, Spaghetti, Spices, Chocolate, Sauces, Oil, Other; Bread: Sandwich bread, Baguette, Burger bun; Frozen: Chips, Tortilla, Ice cube, Bacon, Sausage, Other; Admin: Transport, Staff, Packing, Maintain, Donation, Other expenses",
+    description: "Daily cost categories with sub-categories: Category: sub, sub, sub; next category… (a plain comma list = categories without sub-categories)",
   },
-  { key: "food_check_categories", value: "Food & ingredients,Drinks & beverages", description: "Daily cost categories compared to menu-based food cost" },
+  { key: "food_check_categories", value: "Fresh,Meat,Dairy,Dry food,Bread,Frozen,Food & ingredients,Drinks & beverages", description: "Daily cost categories that are food & drink buys (compared to the menu-based food cost; swapped for it in the expected profit). Old names can stay so earlier costs still count" },
   { key: "todo_amber_days", value: "3", description: "Tasks due within this many days are shown amber" },
   { key: "timezone", value: "Asia/Colombo", description: "Timezone used for 'today'" },
   {
@@ -133,6 +133,30 @@ function toNum(v: string, key: string): number {
   return n;
 }
 
+/**
+ * Daily cost categories. "Fresh: Vegetables, Fruits; Meat: Chicken, Fish" gives categories with sub-categories
+ * (categories split by ";" or new lines). A plain comma list gives categories without sub-categories.
+ */
+export function parseCostCategories(v: string): { categories: string[]; subs: Record<string, string[]> } {
+  const subs: Record<string, string[]> = {};
+  if (!v.includes(":")) {
+    const categories = list(v);
+    for (const c of categories) subs[c] = [];
+    return { categories, subs };
+  }
+  const categories: string[] = [];
+  for (const part of v.split(/[;\n]/).map((x) => x.trim()).filter(Boolean)) {
+    const i = part.indexOf(":");
+    const name = (i < 0 ? part : part.slice(0, i)).trim();
+    if (!name) continue;
+    if (subs[name]) throw new Error(`cost_categories: "${name}" is listed twice`);
+    categories.push(name);
+    subs[name] = i < 0 ? [] : Array.from(new Set(list(part.slice(i + 1))));
+  }
+  if (!categories.length) throw new Error("cost_categories: add at least one category");
+  return { categories, subs };
+}
+
 export function parsePartners(v: string): Partner[] {
   return list(v).map((p) => {
     const [name, pctStr] = p.split(":").map((s) => s.trim());
@@ -195,6 +219,7 @@ export function parseSettings(rows: SettingRow[], targets: TargetPeriod[]): Sett
   if (Math.abs(villaTotal - 100) > 0.001) throw new Error(`Villa partner split (villa_partners) must total 100%, got ${villaTotal}%`);
 
   const alloc = g("one_time_allocation") === "spread" ? "spread" : "full";
+  const costCats = parseCostCategories(g("cost_categories"));
   const basis = g("fixed_profit_basis") === "planned" ? "planned" : "actual_when_paid";
 
   return {
@@ -208,7 +233,8 @@ export function parseSettings(rows: SettingRow[], targets: TargetPeriod[]): Sett
     one_time_spread_months: Math.max(1, Math.round(toNum(g("one_time_spread_months"), "one_time_spread_months"))),
     fixed_profit_basis: basis,
     // "Uber commission" is always available: Uber orders record it automatically.
-    cost_categories: [...list(g("cost_categories")).filter((c) => c !== "Uber commission"), "Uber commission"],
+    cost_categories: [...costCats.categories.filter((c) => c !== "Uber commission"), "Uber commission"],
+    cost_subcategories: { ...costCats.subs, "Uber commission": [] },
     food_check_categories: list(g("food_check_categories")),
     todo_amber_days: toNum(g("todo_amber_days"), "todo_amber_days"),
     timezone: g("timezone") || "UTC",

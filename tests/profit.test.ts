@@ -3,6 +3,7 @@ import { monthProfit, partnerShares, profitTable, sinceOpening, totalProfit, yea
 import { fixedCostsForMonth, isMonthlyActive, oneTimeAllocation, unpaidFixedCosts } from "../src/lib/calc/fixedCosts";
 import { cost, monthly, oneTime, order, settings } from "./fixtures";
 import type { FixedPayment } from "../src/lib/types";
+import { parseCostCategories } from "../src/lib/settings";
 
 const base = (o: Partial<Parameters<typeof monthProfit>[1]> = {}) => ({
   orders: [], dailyCosts: [], fixedCosts: [], fixedPayments: [], settings: settings(), ...o,
@@ -203,5 +204,38 @@ describe("plan comparison, tables and YTD", () => {
   it("totals margin is '-' when no sales", () => {
     const t = totalProfit(profitTable("2027-06", "2027-08", input), input.settings);
     expect(t.netMargin).toBeNull();
+  });
+});
+
+describe("daily cost categories with sub-categories", () => {
+  it("reads Category: sub, sub; next … (also one per line)", () => {
+    expect(parseCostCategories("Fresh: Vegetables, Fruits; Admin: Staff\nBread: Baguette")).toEqual({
+      categories: ["Fresh", "Admin", "Bread"],
+      subs: { Fresh: ["Vegetables", "Fruits"], Admin: ["Staff"], Bread: ["Baguette"] },
+    });
+  });
+  it("a plain comma list still works (no sub-categories)", () => {
+    expect(parseCostCategories("Gas & fuel,Other")).toEqual({ categories: ["Gas & fuel", "Other"], subs: { "Gas & fuel": [], Other: [] } });
+  });
+  it("rejects a category listed twice", () => expect(() => parseCostCategories("Meat: Fish; Meat: Beef")).toThrow(/twice/));
+  it("default list: 7 categories, Uber commission added automatically", () => {
+    const s = settings();
+    expect(s.cost_categories).toEqual(["Fresh", "Meat", "Dairy", "Dry food", "Bread", "Frozen", "Admin", "Uber commission"]);
+    expect(s.cost_subcategories["Meat"]).toEqual(["Chicken", "Prawns", "Cuttlefish", "Fish", "Crab", "Beef", "Other"]);
+    expect(s.cost_subcategories["Admin"]).toContain("Donation");
+  });
+  it("food buys = the food categories (old names too); Admin and Uber commission are other costs", () => {
+    const r = monthProfit("2026-12", base({
+      orders: [order({ date: "2026-12-01", qty: 1, unit_price: 10_000, unit_cost: 3_000 })],
+      dailyCosts: [
+        cost({ date: "2026-12-01", amount: 2_000, category: "Meat", sub_category: "Fish" }),
+        cost({ date: "2026-12-01", amount: 500, category: "Food & ingredients" }),
+        cost({ date: "2026-12-02", amount: 700, category: "Admin", sub_category: "Staff" }),
+        cost({ date: "2026-12-02", amount: 300, category: "Uber commission" }),
+      ],
+    }));
+    expect(r.actualFoodPurchases).toBe(2_500);
+    expect(r.otherDailyCosts).toBe(1_000);
+    expect(r.expectedNetProfit).toBe(10_000 - 3_000 - 1_000);
   });
 });

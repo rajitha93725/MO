@@ -297,7 +297,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       {/* ---------- costs ---------- */}
       <Section
         title="Daily costs"
-        csv={<CsvButton filename={file("daily-costs")} headers={["date", "category", "description", "amount", "paid_from", "paid_by", "notes", "entered_by"]} rows={r.costList.map((c) => [c.date, c.category, c.description, c.amount, c.paid_from, c.paid_by, c.notes, c.entered_by])} />}
+        csv={<CsvButton filename={file("daily-costs")} headers={["date", "category", "sub_category", "description", "amount", "paid_from", "paid_by", "notes", "entered_by"]} rows={r.costList.map((c) => [c.date, c.category, c.sub_category, c.description, c.amount, c.paid_from, c.paid_by, c.notes, c.entered_by])} />}
       >
         <div className="grid cols-3">
           <Groups title="By category" rows={r.costsByCategory} countLabel="Entries" />
@@ -308,7 +308,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           <table className="small">
             <thead><tr><th>Date</th><th>Category</th><th>Description</th><th className="num">Amount</th><th>From</th><th>By</th></tr></thead>
             <tbody>
-              {r.costList.map((c) => <tr key={c.cost_id}><td style={{ whiteSpace: "nowrap" }}>{c.date}</td><td>{c.category}</td><td>{c.description}</td><td className="num">{num(c.amount)}</td><td>{accountLabel(c.paid_from)}</td><td>{c.paid_by}</td></tr>)}
+              {r.costList.map((c) => <tr key={c.cost_id}><td style={{ whiteSpace: "nowrap" }}>{c.date}</td><td>{c.category}{c.sub_category ? ` / ${c.sub_category}` : ""}</td><td>{c.description}</td><td className="num">{num(c.amount)}</td><td>{accountLabel(c.paid_from)}</td><td>{c.paid_by}</td></tr>)}
               {r.costList.length === 0 && <tr><td colSpan={6} className="muted">No daily costs this month</td></tr>}
               {r.costList.length > 0 && <tr className="total"><td colSpan={3}>Total</td><td className="num">{num(p.dailyCosts)}</td><td colSpan={2}></td></tr>}
             </tbody>

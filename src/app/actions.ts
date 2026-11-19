@@ -265,6 +265,7 @@ async function recordUberCommission(order_id: string, date: string, meal: string
     amount: commission, paid_from: "Bank", paid_by: "Business",
     notes: `Auto: ${settings.uber_commission_pct}% of Rs ${total.toLocaleString("en-US")}`,
     entered_by: by,
+    sub_category: "",
   };
   await repo.insert("dailyCosts", [cost]);
   return commission;
@@ -429,11 +430,20 @@ export async function saveDailyCost(form: Record<string, string>): Promise<Actio
     const user = await requireAction("any");
     const settings = await repo.settings();
     const v = new V();
+    // An old entry keeps its old category / sub-category when edited.
+    const before = form.cost_id ? (await repo.dailyCosts()).find((c) => c.cost_id === form.cost_id) : undefined;
+    const cats = [...settings.cost_categories, ...(before && !settings.cost_categories.includes(before.category) ? [before.category] : [])];
+    const category = v.oneOf("Category", form.category, cats);
+    const subs = settings.cost_subcategories[category] ?? [];
+    const subOptions = [...subs, ...(before?.sub_category && before.category === category && !subs.includes(before.sub_category) ? [before.sub_category] : [])];
+    const sub_category = subOptions.length ? v.oneOf("Sub-category", form.sub_category, subOptions) : "";
     const row: DailyCost = {
       cost_id: form.cost_id || newId("C"),
       date: v.date("Date", form.date),
-      category: v.oneOf("Category", form.category, settings.cost_categories),
-      description: v.required("Description", form.description),
+      category,
+      sub_category,
+      // Optional when a sub-category says what it was.
+      description: sub_category ? (form.description ?? "").trim() : v.required("Description", form.description),
       amount: v.amount("Amount", form.amount, { allowZero: false }),
       paid_from: v.oneOf("Paid from", form.paid_from, CAFE_ACCOUNTS),
       paid_by: v.oneOf("Paid by", form.paid_by, PAID_BY),
@@ -444,11 +454,11 @@ export async function saveDailyCost(form: Record<string, string>): Promise<Actio
     if (form.cost_id) {
       await requireAction("partner"); // only partners edit existing entries
       await repo.update("dailyCosts", form.cost_id, row);
-      await log("MO Cafe", "Daily cost", "Cost updated", `${row.date} · ${row.category} · ${row.description} · ${money(row.amount)} · ${row.paid_from}`, row.cost_id);
+      await log("MO Cafe", "Daily cost", "Cost updated", `${row.date} · ${row.category}${row.sub_category ? ` / ${row.sub_category}` : ""} · ${row.description} · ${money(row.amount)} · ${row.paid_from}`, row.cost_id);
       return "Cost updated";
     }
     await repo.insert("dailyCosts", [row]);
-    await log("MO Cafe", "Daily cost", "Cost added", `${row.date} · ${row.category} · ${row.description} · ${money(row.amount)} · ${row.paid_from}`, row.cost_id);
+    await log("MO Cafe", "Daily cost", "Cost added", `${row.date} · ${row.category}${row.sub_category ? ` / ${row.sub_category}` : ""} · ${row.description} · ${money(row.amount)} · ${row.paid_from}`, row.cost_id);
     return "Cost saved";
   });
 }

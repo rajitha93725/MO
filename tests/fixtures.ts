@@ -19,7 +19,7 @@ export function order(p: Partial<OrderLine> & { date: string; qty: number; unit_
 
 export function cost(p: Partial<DailyCost> & { date: string; amount: number }): DailyCost {
   n++;
-  return { cost_id: `C${n}`, category: "Food & ingredients", description: "x", paid_from: "Petty cash", paid_by: "Business", notes: "", entered_by: "t", ...p };
+  return { cost_id: `C${n}`, category: "Food & ingredients", description: "x", paid_from: "Petty cash", paid_by: "Business", notes: "", entered_by: "t", sub_category: "", ...p };
 }
 
 export function monthly(p: Partial<FixedCost> & { amount: number; start_month: string }): FixedCost {

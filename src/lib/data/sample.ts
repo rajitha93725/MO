@@ -82,14 +82,17 @@ export function buildSample(menu: MenuItem[], monthlyFixed: FixedCost[], from = 
         );
       }
     }
-    const cost = (category: string, description: string, amount: number, paid_from: DailyCost["paid_from"] = "Petty cash", paid_by: DailyCost["paid_by"] = "Business") =>
-      dailyCosts.push({ cost_id: `C-${String(++costNo).padStart(5, "0")}`, date: d, category, description, amount, paid_from, paid_by, notes: "", entered_by: "sample" });
-    cost("Food & ingredients", "Market – vegetables, fish", Math.round((24000 + r() * 12000) / 100) * 100);
-    cost("Drinks & beverages", "Fruit, milk, coffee", Math.round((7000 + r() * 5000) / 100) * 100);
-    if (r() < 0.25) cost("Gas & fuel", "Gas cylinder", 4500);
-    if (r() < 0.2) cost("Cleaning", "Cleaning supplies", 1800);
-    if (r() < 0.1) cost("Transport", "Tuk-tuk to market", 1500, "Petty cash", r() < 0.5 ? "Rajitha" : "Janith");
-    if (r() < 0.05) cost("Repairs & maintenance", "Plumber", 6500, "Bank");
+    const cost = (category: string, sub_category: string, description: string, amount: number, paid_from: DailyCost["paid_from"] = "Petty cash", paid_by: DailyCost["paid_by"] = "Business") =>
+      dailyCosts.push({ cost_id: `C-${String(++costNo).padStart(5, "0")}`, date: d, category, sub_category, description, amount, paid_from, paid_by, notes: "", entered_by: "sample" });
+    cost("Fresh", "Vegetables", "Market", Math.round((9000 + r() * 5000) / 100) * 100);
+    cost("Meat", r() < 0.5 ? "Fish" : "Chicken", "Market", Math.round((14000 + r() * 7000) / 100) * 100);
+    cost("Dairy", "Fresh milk", "", Math.round((3000 + r() * 2000) / 100) * 100);
+    if (r() < 0.3) cost("Fresh", "Fruits", "", Math.round((3000 + r() * 3000) / 100) * 100);
+    if (r() < 0.2) cost("Dry food", "Rice", "", 5500);
+    if (r() < 0.25) cost("Admin", "Other expenses", "Gas cylinder", 4500);
+    if (r() < 0.2) cost("Admin", "Packing", "Takeaway boxes", 1800);
+    if (r() < 0.1) cost("Admin", "Transport", "Tuk-tuk to market", 1500, "Petty cash", r() < 0.5 ? "Rajitha" : "Janith");
+    if (r() < 0.05) cost("Admin", "Maintain", "Plumber", 6500, "Bank");
   }
 
   const fixedPayments: FixedPayment[] = [];
