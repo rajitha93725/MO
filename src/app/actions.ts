@@ -9,9 +9,10 @@ import { parsePartners, parseSettings } from "@/lib/settings";
 import {
   ORDER_TYPES, VOID_REASONS, orderTypeOf, ACCOUNTS, CAFE_ACCOUNTS, VILLA_ACCOUNTS, CAFE_MOVEMENT_TYPES, TRANSFERS, movementAccounts, ALL_ROOMS, BOOKING_STATUSES, CAPITAL_BUSINESSES, CAPITAL_PAID_INTO, MEALS, MOVED_BY, MOVEMENT_TYPES, PAID_BY,
   PAYMENT_METHODS, PAYOUT_STATUSES, type OrderChannel, PRIORITIES, type CapitalContribution,
+  COMMISSION_COST_CATEGORY, VILLA_PAID_FROM, VILLA_RECEIVED_TO,
   isVillaTodo, type ActivityLog, type CashMovement, type LogBusiness, type DailyCost, type FixedCost, type FixedPayment, type MenuItem, type OrderLine, type TargetPeriod, type Todo, type VillaRecord,
 } from "@/lib/types";
-import { commissionFor, findOverlaps, netPayoutFor, nightsBetween } from "@/lib/calc/villa";
+import { commissionDue, commissionFor, expectedIn, findOverlaps, netPayoutFor, nightsBetween, paidAmount, platformsToClose } from "@/lib/calc/villa";
 import { receiptFromLines, type ReceiptOrder } from "@/lib/receipt";
 import { BILL_DISCOUNT_ID, addonsCost, discountAmount, discountLabel, discountProblem, linePrice, type Addon } from "@/lib/calc/pricing";
 import { mealForTime } from "@/lib/calc/meal";
@@ -758,6 +759,7 @@ const EMPTY_VILLA: VillaRecord = {
   guest_name: "", guests: 0, check_in: "", check_out: "", nights: 0, status: "", total_price: 0, commission_pct: 0,
   commission_amount: 0, booking_costs: 0, net_payout: 0, payout_status: "", payout_date: "", received_to: "",
   cost_category: "", cost_description: "", cost_amount: 0, cost_room: "", paid_from: "", notes: "",
+  breakfast: false, commission_later: false, amount_paid: 0, closed_platforms: "", booking_id: "",
 };
 
 export async function saveBooking(form: Record<string, string>): Promise<ActionResult> {
@@ -778,11 +780,24 @@ export async function saveBooking(form: Record<string, string>): Promise<ActionR
     const commission_amount = v.optionalAmount("Commission amount", form.commission_amount, commissionFor(total_price, commission_pct));
     const booking_costs = v.optionalAmount("Booking costs", form.booking_costs);
     const guests = v.optionalAmount("Guests", form.guests);
-    const payout_status = v.oneOf("Payout status", form.payout_status || "Pending", PAYOUT_STATUSES);
-    const payout_date = v.optionalDate("Payout date", form.payout_date);
+    const commission_later = form.commission_later === "yes";
+    const breakfast = form.breakfast === "yes";
+    // Payment: Not paid / Part paid (amount) / Paid (everything to receive).
+    const toReceive = expectedIn({ net_payout: netPayoutFor(total_price, commission_amount, booking_costs), commission_amount, commission_later });
+    const payment = v.oneOf("Payment", form.payment || "Not paid", ["Not paid", "Part paid", "Paid"]);
+    let amount_paid = 0;
+    if (payment === "Paid") amount_paid = toReceive;
+    else if (payment === "Part paid") {
+      amount_paid = v.amount("Amount paid", form.amount_paid, { allowZero: false });
+      v.check(amount_paid <= toReceive, `Amount paid can't be more than the amount to receive (Rs ${toReceive.toLocaleString("en-US")})`);
+    }
+    const payout_status: VillaRecord["payout_status"] = amount_paid > 0 && amount_paid >= toReceive ? "Received" : "Pending";
     let received_to: VillaRecord["received_to"] = "";
-    if (payout_status === "Received") received_to = v.oneOf("Received to", form.received_to, VILLA_ACCOUNTS);
-    else if ((VILLA_ACCOUNTS as string[]).includes(form.received_to)) received_to = form.received_to as VillaRecord["received_to"];
+    let payout_date = "";
+    if (amount_paid > 0) {
+      received_to = v.oneOf("Received to", form.received_to, VILLA_RECEIVED_TO);
+      payout_date = v.optionalDate("Payment date", form.payout_date) || today(settings);
+    }
     v.done();
 
     const record_id = form.record_id || newId("VB");
@@ -818,6 +833,11 @@ export async function saveBooking(form: Record<string, string>): Promise<ActionR
       payout_date,
       received_to,
       notes: (form.notes ?? "").trim(),
+      breakfast,
+      commission_later,
+      amount_paid,
+      // Ticks stay unless the platform changed (then the list of other platforms is different).
+      closed_platforms: existing && existing.platform === platform ? existing.closed_platforms : "",
     };
     if (existing) await repo.update("villa", record_id, row);
     else await repo.insert("villa", [row]);
@@ -826,19 +846,75 @@ export async function saveBooking(form: Record<string, string>): Promise<ActionR
   });
 }
 
-export async function markPayoutReceived(record_id: string, received_to: string, payout_date: string): Promise<ActionResult> {
+/** Adds a payment (full or part) to a booking. */
+export async function recordPayment(record_id: string, amount: string, received_to: string, payout_date: string): Promise<ActionResult> {
   return run(async () => {
     await requireAction("owner");
+    const b = (await repo.villa()).find((r) => r.record_id === record_id && r.record_type === "Booking");
+    if (!b) throw new Error("Booking not found");
+    const due = Math.max(0, expectedIn(b) - paidAmount(b));
     const v = new V();
-    const to = v.oneOf("Received to", received_to, VILLA_ACCOUNTS);
-    const date = v.date("Payout date", payout_date);
+    const amt = v.amount("Amount", amount, { allowZero: false });
+    v.check(amt <= due, `Only Rs ${due.toLocaleString("en-US")} is still to receive`);
+    const to = v.oneOf("Received to", received_to, VILLA_RECEIVED_TO);
+    const date = v.date("Payment date", payout_date);
     v.done();
-    await repo.update("villa", record_id, { payout_status: "Received", received_to: to, payout_date: date });
-    {
-      const b = (await repo.villa()).find((r) => r.record_id === record_id);
-      await log("MO Villa", "Booking", "Payout received", `${b ? `${b.room_number} · ${b.guest_name || b.platform} · ${money(b.net_payout)}` : record_id} · to ${to} · ${date}`, record_id);
-    }
-    return "Payout marked received";
+    const amount_paid = paidAmount(b) + amt;
+    const payout_status = amount_paid >= expectedIn(b) ? "Received" : "Pending";
+    await repo.update("villa", record_id, { payout_status, amount_paid, received_to: to, payout_date: date });
+    await log("MO Villa", "Booking", payout_status === "Received" ? "Payment received (paid in full)" : "Part payment received",
+      `${b.room_number} · ${b.guest_name || b.platform} · ${money(amt)} · to ${to} · ${date}`, record_id);
+    return payout_status === "Received" ? "Paid in full" : `Part payment saved · Rs ${(expectedIn(b) - amount_paid).toLocaleString("en-US")} still to receive`;
+  });
+}
+
+/** Pays a "commission later" booking's commission: saved as a villa Cost linked to the booking. */
+export async function payCommission(record_id: string, paid_from: string, date: string): Promise<ActionResult> {
+  return run(async () => {
+    await requireAction("owner");
+    const records = await repo.villa();
+    const b = records.find((r) => r.record_id === record_id && r.record_type === "Booking");
+    if (!b) throw new Error("Booking not found");
+    const due = commissionDue(b, records);
+    if (due <= 0) throw new Error("No commission to pay for this booking");
+    const v = new V();
+    const from = v.oneOf("Paid from", paid_from, VILLA_PAID_FROM);
+    const d = v.date("Date", date);
+    v.done();
+    const row: VillaRecord = {
+      ...EMPTY_VILLA,
+      record_id: newId("VC"),
+      record_type: "Cost",
+      date_entered: d,
+      cost_category: COMMISSION_COST_CATEGORY,
+      cost_description: `${b.platform} commission · ${b.guest_name || b.booking_ref || b.record_id} · ${b.check_in}`,
+      cost_amount: due,
+      cost_room: b.room_number,
+      paid_from: from,
+      booking_id: b.record_id,
+    };
+    await repo.insert("villa", [row]);
+    await log("MO Villa", "Villa cost", "Commission paid", `${b.room_number} · ${b.platform} · ${b.guest_name || b.record_id} · ${money(due)} · ${from}`, row.record_id);
+    return "Commission paid · saved under Costs";
+  });
+}
+
+/** Ticks (or unticks) another platform as closed by hand for a booking's dates. */
+export async function setPlatformClosed(record_id: string, platform: string, closed: boolean): Promise<ActionResult> {
+  return run(async () => {
+    await requireAction("owner");
+    const settings = await repo.settings();
+    const b = (await repo.villa()).find((r) => r.record_id === record_id && r.record_type === "Booking");
+    if (!b) throw new Error("Booking not found");
+    const allowed = platformsToClose(b, settings);
+    if (!allowed.includes(platform)) throw new Error(`${platform} is not one of the other platforms`);
+    const now = new Set((b.closed_platforms || "").split(",").map((s) => s.trim()).filter(Boolean));
+    if (closed) now.add(platform);
+    else now.delete(platform);
+    const closed_platforms = allowed.filter((p) => now.has(p)).join(",");
+    await repo.update("villa", record_id, { closed_platforms });
+    await log("MO Villa", "Booking", closed ? "Platform closed" : "Platform reopened", `${b.room_number} · ${b.check_in} → ${b.check_out} · ${platform}`, record_id);
+    return closed ? `${platform} ticked as closed` : `${platform} unticked`;
   });
 }
 
@@ -848,17 +924,21 @@ export async function saveVillaCost(form: Record<string, string>): Promise<Actio
     const settings = await repo.settings();
     const v = new V();
     const rooms = settings.villa_rooms.map((r) => r.room_number);
+    const before = form.record_id ? (await repo.villa()).find((r) => r.record_id === form.record_id) : undefined;
+    // Old rows may say Bank; they keep it, new costs use the three villa options.
+    const paidFromOptions = [...VILLA_PAID_FROM, ...(before?.paid_from && !VILLA_PAID_FROM.includes(before.paid_from) ? [before.paid_from] : [])];
     const row: VillaRecord = {
       ...EMPTY_VILLA,
       record_id: form.record_id || newId("VC"),
       record_type: "Cost",
       date_entered: v.date("Date", form.date_entered),
-      cost_category: v.oneOf("Category", form.cost_category, settings.villa_cost_categories),
+      cost_category: v.oneOf("Category", form.cost_category, [...settings.villa_cost_categories, COMMISSION_COST_CATEGORY]),
       cost_description: (form.cost_description ?? "").trim(),
       cost_amount: v.amount("Amount", form.cost_amount, { allowZero: false }),
       cost_room: v.oneOf("Room", form.cost_room || ALL_ROOMS, [ALL_ROOMS, ...rooms]),
-      paid_from: v.oneOf("Paid from", form.paid_from, VILLA_ACCOUNTS),
+      paid_from: v.oneOf("Paid from", form.paid_from, paidFromOptions),
       notes: (form.notes ?? "").trim(),
+      booking_id: before?.booking_id ?? "",
     };
     v.done();
     if (form.record_id) await repo.update("villa", form.record_id, row);

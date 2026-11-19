@@ -51,6 +51,21 @@ export const VILLA_ACCOUNTS: Account[] = ["Villa petty cash", "Bank"];
 export const ACCOUNT_LABEL: Record<Account, string> = { "Petty cash": "Cafe petty cash", "Villa petty cash": "Villa petty cash", Bank: "Bank" };
 export const accountLabel = (a: string) => ACCOUNT_LABEL[a as Account] ?? a;
 
+/**
+ * The villa owner's own money (not business balances). Villa costs paid from these, and villa payments received into them,
+ * do not change the Bank or petty cash balances. Costs paid from them are money the owner put into the villa.
+ */
+export type OwnerAccount = "Owner Bank" | "Owner Cash";
+export const OWNER_ACCOUNTS: OwnerAccount[] = ["Owner Bank", "Owner Cash"];
+export type VillaMoneyAccount = Account | OwnerAccount;
+/** Where villa costs are paid from. */
+export const VILLA_PAID_FROM: VillaMoneyAccount[] = ["Owner Bank", "Villa petty cash", "Owner Cash"];
+/** Where villa booking payments are received into. */
+export const VILLA_RECEIVED_TO: VillaMoneyAccount[] = ["Villa petty cash", "Bank", "Owner Bank", "Owner Cash"];
+/** Villa account names as shown in the villa screens. */
+export const villaAccountLabel = (a: string) =>
+  a === "Bank" ? "Bank (shared)" : a === "Petty cash" || a === "Villa petty cash" ? "Villa Petty Cash" : a;
+
 export type PaidBy = "Business" | "Rajitha" | "Janith";
 export const PAID_BY: PaidBy[] = ["Business", "Rajitha", "Janith"];
 
@@ -344,6 +359,8 @@ export interface Settings {
   villa_allocation: VillaAllocation;
   /** Who shares villa profit (cafe profit uses `partners`). */
   villa_partners: Partner[];
+  /** Villa season months (1-12), used for the recovery estimate. */
+  villa_season_months: number[];
   /** Menu categories in display order, with their item ID prefix. */
   menu_categories: MenuCategory[];
   /** Receipt header and footer lines. */
@@ -378,6 +395,8 @@ export const BOOKING_STATUSES: BookingStatus[] = ["Confirmed", "Completed", "Can
 export type PayoutStatus = "Pending" | "Received";
 export const PAYOUT_STATUSES: PayoutStatus[] = ["Pending", "Received"];
 export const ALL_ROOMS = "All rooms";
+/** Villa cost category for platform commission paid after the stay (already counted in the booking, so not counted again in profit). */
+export const COMMISSION_COST_CATEGORY = "Platform commission";
 
 /** One row of the MO_Villa tab. Booking rows use the booking columns, Cost rows the cost columns. */
 export interface VillaRecord {
@@ -401,13 +420,23 @@ export interface VillaRecord {
   net_payout: number;
   payout_status: PayoutStatus | "";
   payout_date: ISODate;
-  received_to: Account | "";
+  received_to: VillaMoneyAccount | "";
   cost_category: string;
   cost_description: string;
   cost_amount: number;
   cost_room: string; // a room_number or "All rooms"
-  paid_from: Account | "";
+  paid_from: VillaMoneyAccount | "";
   notes: string;
+  /** Booking: breakfast is included in the price. */
+  breakfast: boolean;
+  /** Booking: the guest pays the full price to us and the platform's commission is paid later (recorded as a villa Cost). */
+  commission_later: boolean;
+  /** Booking: money received so far (guest or platform). 0 with payout_status Received = old row, fully received. */
+  amount_paid: number;
+  /** Booking: other platforms where these dates were closed by hand, comma separated. */
+  closed_platforms: string;
+  /** Cost: the booking this cost belongs to (e.g. its platform commission). */
+  booking_id: string;
 }
 
 export interface VillaRoom {
@@ -419,6 +448,8 @@ export interface VillaRoom {
 export interface VillaPlatform {
   name: string;
   commission_pct: number;
+  /** Guest pays us the full price, commission is invoiced and paid later (Settings: "Name:pct:later"). */
+  commission_later: boolean;
 }
 
 export type VillaAllocation = "nights" | "check_in";

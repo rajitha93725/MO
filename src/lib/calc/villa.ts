@@ -1,6 +1,6 @@
-import type { ISODate, MonthKey, Settings, VillaRecord } from "../types";
-import { ALL_ROOMS } from "../types";
-import { addDays, daysBetween, daysInMonth, monthOf, monthRange } from "./dates";
+import type { CapitalContribution, ISODate, MonthKey, Settings, VillaRecord } from "../types";
+import { ALL_ROOMS, COMMISSION_COST_CATEGORY } from "../types";
+import { addDays, addMonths, daysBetween, daysInMonth, monthNumber, monthOf, monthRange } from "./dates";
 import { ratio, sum } from "./money";
 
 type VillaSettings = Pick<Settings, "villa_rooms" | "villa_platforms" | "villa_allocation">;
@@ -10,15 +10,84 @@ export const VILLA_FORMULAS = {
   commission: "Commission = total_price × commission_pct (can be overridden per booking)",
   netPayout: "Net payout = total_price − commission_amount − booking_costs",
   gross: "Gross bookings = sum of total_price (Cancelled bookings only count when a cancellation fee is entered in total_price)",
-  villaCosts: "Villa costs = sum of cost_amount for Cost rows dated in the month",
+  villaCosts: `Villa costs = sum of cost_amount for Cost rows dated in the month, except "${COMMISSION_COST_CATEGORY}" (that commission is already taken off in the booking)`,
   netProfit: "Villa net profit = Gross bookings − Commission − Booking costs − Villa costs",
   occupancy: "Occupancy = booked nights ÷ (rooms × days in month). Cancelled bookings don't occupy nights",
   avgRate: "Average price per night = revenue of the nights stayed in the month ÷ booked nights",
   allocation:
     "Settings: villa_allocation = nights → revenue, commission and booking costs are split across months by nights stayed; check_in → all counted in the check-in month",
   perRoom: "Room net profit = room's bookings net − room's own costs − an equal share of \"All rooms\" costs",
-  payouts: "Received payouts add net_payout to the received_to account on payout_date (or check-out date when blank)",
+  roomAvg: "Room average price per night = room's revenue of the nights stayed ÷ room's booked nights. Total = all rooms' revenue ÷ all booked nights",
+  payouts: "Money received for a booking (full or part) is added to the received_to account on payout_date (or check-out date when blank). Owner Bank / Owner Cash are the owner's own money and don't change business balances",
+  toReceive: "To receive = Total price − Booking costs − Commission (only when the platform takes it from the payout). When commission is paid later the guest pays the full price and the commission is paid as a villa Cost",
+  payment: "Payment: Not paid (nothing received), Part paid (some received), Paid (all of 'To receive' received)",
+  commissionLater: `Commission paid later: the guest pays us, the platform invoices its commission. Pay it with "Pay commission": it is saved as a villa Cost (${COMMISSION_COST_CATEGORY}) so the account balance goes down, but it is not counted twice in profit`,
+  closePlatforms: "Tick each other platform once you've blocked these dates there by hand, so the room can't be double-booked",
+  recovery:
+    "Total to recover = Villa capital + Villa costs (all costs, including those paid by the owner). Earned = Gross bookings − Commission − Booking costs. Still to recover = Total to recover − Earned",
+  recoveryPace:
+    "Estimate: average net (Earned − Villa costs) per season month and per off-season month, from finished months so far. The remaining amount is taken off month by month from next month (season months from Settings: villa_season_months). Rough guide only",
 } as const;
+
+// ---------- booking payment ----------
+
+/** Money the villa should receive for a booking: commission is only taken off when the platform keeps it. */
+export function expectedIn(b: Pick<VillaRecord, "net_payout" | "commission_amount" | "commission_later">): number {
+  return b.net_payout + (b.commission_later ? b.commission_amount : 0);
+}
+
+/** Money received so far. Old rows marked Received without an amount count as fully received. */
+export function paidAmount(b: Pick<VillaRecord, "amount_paid" | "payout_status" | "net_payout" | "commission_amount" | "commission_later">): number {
+  if (b.amount_paid > 0) return b.amount_paid;
+  return b.payout_status === "Received" ? expectedIn(b) : 0;
+}
+
+export function amountDue(b: VillaRecord): number {
+  if (!countsAsRevenue(b)) return 0;
+  return Math.max(0, expectedIn(b) - paidAmount(b));
+}
+
+export type PaymentState = "Paid" | "Part paid" | "Not paid";
+
+export function paymentState(b: VillaRecord): PaymentState {
+  const paid = paidAmount(b);
+  if (paid <= 0) return expectedIn(b) <= 0 ? "Paid" : "Not paid";
+  return paid >= expectedIn(b) ? "Paid" : "Part paid";
+}
+
+/** The Cost row that paid this booking's commission, if any. */
+export function commissionPayment(b: VillaRecord, records: VillaRecord[]): VillaRecord | undefined {
+  return records.find((r) => r.record_type === "Cost" && r.booking_id === b.record_id && r.cost_category === COMMISSION_COST_CATEGORY);
+}
+
+/** Commission still to pay to the platform (only for "paid later" bookings). */
+export function commissionDue(b: VillaRecord, records: VillaRecord[]): number {
+  if (!b.commission_later || !countsAsRevenue(b) || b.commission_amount <= 0) return 0;
+  return commissionPayment(b, records) ? 0 : b.commission_amount;
+}
+
+/** Profit counts every villa cost except platform commission paid later (already taken off in the booking). */
+export function countsInProfit(c: VillaRecord): boolean {
+  return c.cost_category !== COMMISSION_COST_CATEGORY;
+}
+
+// ---------- closing other platforms ----------
+
+/** Other platforms where the dates should be closed by hand (not the booking's own, not Direct / Other). */
+export function platformsToClose(b: VillaRecord, settings: Pick<Settings, "villa_platforms">): string[] {
+  return settings.villa_platforms.map((p) => p.name).filter((p) => p !== b.platform && p !== "Direct" && p !== "Other");
+}
+
+export function closedList(b: Pick<VillaRecord, "closed_platforms">): string[] {
+  return (b.closed_platforms || "").split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+/** Platforms still open for a live booking (Confirmed, not checked out yet). */
+export function stillOpen(b: VillaRecord, settings: Pick<Settings, "villa_platforms">, today: ISODate): string[] {
+  if (b.record_type !== "Booking" || b.status !== "Confirmed" || b.check_out < today) return [];
+  const done = closedList(b);
+  return platformsToClose(b, settings).filter((p) => !done.includes(p));
+}
 
 // ---------- single booking ----------
 
@@ -148,12 +217,27 @@ export interface VillaMonth {
   avgPricePerNight: number | null;
   bookings: number; // bookings with revenue counted in the month
   byPlatform: { platform: string; bookings: number; revenue: number }[];
-  perRoom: { room: string; gross: number; commission: number; bookingCosts: number; ownCosts: number; sharedCosts: number; netProfit: number }[];
+  perRoom: RoomFigures[];
+}
+
+export interface RoomFigures {
+  room: string;
+  gross: number;
+  commission: number;
+  bookingCosts: number;
+  ownCosts: number;
+  sharedCosts: number;
+  netProfit: number;
+  /** Booked nights in the month (physical stays). */
+  nights: number;
+  /** Revenue of those nights (for the average price). */
+  stayRevenue: number;
+  avgPricePerNight: number | null;
 }
 
 export function villaMonth(month: MonthKey, records: VillaRecord[], settings: VillaSettings): VillaMonth {
   const bookings = records.filter(isBooking);
-  const costs = records.filter((r) => isCost(r) && monthOf(r.date_entered) === month);
+  const costs = records.filter((r) => isCost(r) && monthOf(r.date_entered) === month && countsInProfit(r));
   const rooms = settings.villa_rooms.map((r) => r.room_number);
   const days = daysInMonth(month).length;
 
@@ -169,7 +253,8 @@ export function villaMonth(month: MonthKey, records: VillaRecord[], settings: Vi
   const stays = bookings.filter(occupiesRoom);
   const nightsIn = (b: VillaRecord) => nightsByMonth(b.check_in, b.check_out).get(month) ?? 0;
   const bookedNights = sum(stays, nightsIn);
-  const stayRevenueThisMonth = sum(stays, (b) => splitAmount(b.total_price, nightsByMonth(b.check_in, b.check_out)).get(month) ?? 0);
+  const stayRevenueOf = (b: VillaRecord) => splitAmount(b.total_price, nightsByMonth(b.check_in, b.check_out)).get(month) ?? 0;
+  const stayRevenueThisMonth = sum(stays, stayRevenueOf);
 
   const roomOccupancy = rooms.map((room) => {
     const nights = sum(stays.filter((b) => b.room_number === room), nightsIn);
@@ -194,7 +279,13 @@ export function villaMonth(month: MonthKey, records: VillaRecord[], settings: Vi
     const bc = sum(mine, (x) => x.s.bookingCosts);
     const own = sum(costs.filter((x) => x.cost_room === room), (x) => x.cost_amount);
     const sh = sharedSplit.get(room) ?? 0;
-    return { room, gross: g, commission: c, bookingCosts: bc, ownCosts: own, sharedCosts: sh, netProfit: g - c - bc - own - sh };
+    const roomStays = stays.filter((b) => b.room_number === room);
+    const nights = sum(roomStays, nightsIn);
+    const stayRevenue = sum(roomStays, stayRevenueOf);
+    return {
+      room, gross: g, commission: c, bookingCosts: bc, ownCosts: own, sharedCosts: sh, netProfit: g - c - bc - own - sh,
+      nights, stayRevenue, avgPricePerNight: nights ? Math.round(stayRevenue / nights) : null,
+    };
   });
 
   return {
@@ -241,8 +332,182 @@ export function upcomingCheckIns(records: VillaRecord[], today: ISODate, days = 
     .sort((a, b) => a.check_in.localeCompare(b.check_in) || a.room_number.localeCompare(b.room_number));
 }
 
+/** Bookings with money still to receive. */
 export function pendingPayouts(records: VillaRecord[]): VillaRecord[] {
-  return records.filter((r) => isBooking(r) && r.payout_status !== "Received" && countsAsRevenue(r) && r.net_payout > 0);
+  return records.filter((r) => isBooking(r) && amountDue(r) > 0);
+}
+
+/** Per-room figures added up over several months (e.g. since opening), with a Total row. */
+export function roomTotals(months: VillaMonth[], rooms: string[]): { rooms: RoomFigures[]; total: RoomFigures } {
+  const add = (list: RoomFigures[], room: string): RoomFigures => {
+    const s = (f: (r: RoomFigures) => number) => sum(list, f);
+    const nights = s((r) => r.nights);
+    const stayRevenue = s((r) => r.stayRevenue);
+    return {
+      room,
+      gross: s((r) => r.gross), commission: s((r) => r.commission), bookingCosts: s((r) => r.bookingCosts),
+      ownCosts: s((r) => r.ownCosts), sharedCosts: s((r) => r.sharedCosts), netProfit: s((r) => r.netProfit),
+      nights, stayRevenue, avgPricePerNight: nights ? Math.round(stayRevenue / nights) : null,
+    };
+  };
+  const per = rooms.map((room) => add(months.flatMap((m) => m.perRoom.filter((r) => r.room === room)), room));
+  return { rooms: per, total: add(per, "Total") };
+}
+
+// ---------- recovery (earning back capital + costs) ----------
+
+export interface RecoveryMonth {
+  month: MonthKey;
+  season: boolean;
+  earned: number;
+  costs: number;
+  net: number;
+  /** Still to recover at the end of the month. */
+  remaining: number;
+}
+
+export interface VillaRecovery {
+  capital: number;
+  costs: number;
+  /** Part of `costs` paid from Owner Bank / Owner Cash. */
+  ownerPaidCosts: number;
+  totalToRecover: number;
+  earned: number;
+  remaining: number;
+  recoveredPct: number | null;
+  seasonAvg: number | null;
+  offSeasonAvg: number | null;
+  seasonMonthsUsed: number;
+  offMonthsUsed: number;
+  /** Months from next month until recovered (null = can't estimate). */
+  monthsToGo: number | null;
+  seasonMonthsToGo: number | null;
+  recoveredBy: MonthKey | null;
+  rows: RecoveryMonth[];
+}
+
+export function isSeasonMonth(month: MonthKey, seasonMonths: number[]): boolean {
+  return seasonMonths.includes(monthNumber(month));
+}
+
+export function villaRecovery(
+  records: VillaRecord[],
+  capital: CapitalContribution[],
+  settings: VillaSettings & Pick<Settings, "opening_month" | "villa_season_months">,
+  today: ISODate,
+): VillaRecovery {
+  const thisMonth = monthOf(today);
+  const villaCapital = capital.filter((c) => c.business === "MO Villa" && c.date <= today);
+  const capitalTotal = sum(villaCapital, (c) => c.amount);
+
+  // From the earliest villa money (or the opening month) to this month.
+  const firsts = [
+    settings.opening_month,
+    ...records.filter(isCost).map((r) => monthOf(r.date_entered)),
+    ...records.filter(isBooking).map((r) => monthOf(r.check_in)),
+  ].filter(Boolean);
+  const from = firsts.reduce((a, b) => (b < a ? b : a), thisMonth);
+  const months = from <= thisMonth ? villaTable(from, thisMonth, records, settings) : [];
+
+  let remaining = capitalTotal;
+  const rows: RecoveryMonth[] = months.map((m) => {
+    const earned = m.gross - m.commission - m.bookingCosts;
+    const net = earned - m.villaCosts;
+    remaining -= net;
+    return { month: m.month, season: isSeasonMonth(m.month, settings.villa_season_months), earned, costs: m.villaCosts, net, remaining };
+  });
+
+  const costs = sum(rows, (r) => r.costs);
+  const earned = sum(rows, (r) => r.earned);
+  const totalToRecover = capitalTotal + costs;
+  const ownerPaidCosts = sum(
+    records.filter((r) => isCost(r) && countsInProfit(r) && monthOf(r.date_entered) <= thisMonth && (r.paid_from === "Owner Bank" || r.paid_from === "Owner Cash")),
+    (r) => r.cost_amount,
+  );
+  const left = totalToRecover - earned;
+
+  // Pace from finished months (this month too when it's the only one).
+  const finished = rows.filter((r) => r.month < thisMonth);
+  const basis = finished.length ? finished : rows;
+  const seasonRows = basis.filter((r) => r.season);
+  const offRows = basis.filter((r) => !r.season);
+  const avg = (list: RecoveryMonth[]) => (list.length ? Math.round(sum(list, (r) => r.net) / list.length) : null);
+  const seasonAvg = avg(seasonRows);
+  const offSeasonAvg = avg(offRows);
+
+  let monthsToGo: number | null = null;
+  let seasonMonthsToGo: number | null = null;
+  let recoveredBy: MonthKey | null = null;
+  if (left <= 0) {
+    monthsToGo = 0;
+    seasonMonthsToGo = 0;
+    recoveredBy = rows.find((r) => r.remaining <= 0)?.month ?? thisMonth;
+  } else if (seasonAvg !== null && seasonAvg > 0) {
+    const seasonLen = settings.villa_season_months.length;
+    const off = offSeasonAvg ?? 0;
+    // Only estimate when a full year still earns money overall.
+    if (seasonAvg * seasonLen + off * (12 - seasonLen) > 0) {
+      let r = left;
+      let m = thisMonth;
+      let n = 0;
+      let s = 0;
+      while (r > 0 && n < 600) {
+        m = addMonths(m, 1);
+        n++;
+        const season = isSeasonMonth(m, settings.villa_season_months);
+        if (season) s++;
+        r -= season ? seasonAvg : off;
+      }
+      if (r <= 0) {
+        monthsToGo = n;
+        seasonMonthsToGo = s;
+        recoveredBy = m;
+      }
+    }
+  }
+
+  return {
+    capital: capitalTotal,
+    costs,
+    ownerPaidCosts,
+    totalToRecover,
+    earned,
+    remaining: left,
+    recoveredPct: totalToRecover > 0 ? Math.min(1, Math.max(0, earned / totalToRecover)) : null,
+    seasonAvg,
+    offSeasonAvg,
+    seasonMonthsUsed: seasonRows.length,
+    offMonthsUsed: offRows.length,
+    monthsToGo,
+    seasonMonthsToGo,
+    recoveredBy,
+    rows,
+  };
+}
+
+// ---------- calendar ----------
+
+export interface CalendarCell {
+  /** Day index in the month where this cell starts. */
+  start: number;
+  span: number;
+  booking: VillaRecord | null;
+  /** The booking started before this month. */
+  continues: boolean;
+}
+
+/** One row per room: free days are single cells, a stay is one cell spanning its nights in the month. */
+export function calendarRows(month: MonthKey, records: VillaRecord[], rooms: string[]): { room: string; cells: CalendarCell[] }[] {
+  return calendarGrid(month, records, rooms).map(({ room, cells }) => {
+    const out: CalendarCell[] = [];
+    for (let i = 0; i < cells.length; i++) {
+      const b = cells[i];
+      const last = out[out.length - 1];
+      if (b && last?.booking?.record_id === b.record_id) last.span++;
+      else out.push({ start: i, span: 1, booking: b, continues: Boolean(b && i === 0 && b.check_in < `${month}-01`) });
+    }
+    return { room, cells: out };
+  });
 }
 
 /** Which room each night of a month is booked by (for the calendar). */

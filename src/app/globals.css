@@ -249,7 +249,30 @@ table.cal td { padding: 0; height: 40px; border-right: 1px solid var(--border); 
 table.cal th.today { color: var(--brand); }
 table.cal td.cal-free { background: var(--surface); }
 table.cal td.cal-booked { border-right: 1px solid var(--surface); }
-table.cal td.cal-booked a { display: flex; align-items: center; justify-content: center; height: 40px; min-width: 30px; color: #fff; font-weight: 700; text-decoration: none; text-shadow: 0 1px 1px rgba(0,0,0,.35); }
+table.cal td.cal-booked a { display: flex; align-items: center; justify-content: space-between; gap: 2px; height: 40px; min-width: 30px; padding: 0 4px; color: #fff; font-weight: 700; text-decoration: none; text-shadow: 0 1px 1px rgba(0,0,0,.35); overflow: hidden; }
+table.cal td.cal-booked { border-radius: 6px; border-right: 2px solid var(--surface); max-width: 0; }
+table.cal .cal-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+table.cal .cal-icons { white-space: nowrap; flex: none; text-shadow: none; }
+table.cal td.cal-room { position: sticky; left: 0; background: var(--surface); white-space: nowrap; z-index: 1; padding: 0 10px; vertical-align: middle; }
+table.cal td.cal-free a { display: flex; align-items: center; justify-content: center; height: 40px; color: transparent; text-decoration: none; font-weight: 700; }
+table.cal td.cal-free a:hover, table.cal td.cal-free a:focus-visible { color: var(--brand); background: var(--surface-2); }
+table.cal td.cal-free.past { background: var(--surface-2); }
+table.cal td.cal-free.today { box-shadow: inset 2px 0 0 var(--brand); }
+table.cal th.weekend { background: var(--surface-2); }
+/* small gap between the room pairs (Tide & Breeze | Nest & Cove) */
+table.cal tbody.cal-group + tbody.cal-group tr:first-child td { border-top: 10px solid var(--bg, var(--surface-2)); }
+
+/* one-line filters (scrolls sideways on a phone) */
+.card.filters { display: flex; flex-wrap: nowrap; align-items: flex-end; gap: 8px; overflow-x: auto; padding: 10px 12px; }
+.card.filters .field { flex: 1 1 120px; min-width: 110px; margin: 0; }
+.card.filters .field input, .card.filters .field select { min-height: 38px; }
+.card.filters > .btn, .card.filters > button { flex: none; min-height: 38px; }
+.card.warn { border-color: var(--warn); background: var(--warn-soft); }
+
+/* villa: close other platforms checklist */
+.close-list { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 6px; padding: 6px 8px; border-radius: 8px; }
+.close-list.open { background: var(--warn-soft); }
+.close-list.done { background: var(--good-soft); }
 
 /* ---------- loading skeleton ---------- */
 .skeleton { background: var(--surface-2); border-radius: 10px; animation: pulse 1.2s ease-in-out infinite; }

@@ -25,6 +25,7 @@ const LABELS: Record<string, string> = {
   villa_platforms: "Villa platforms & commission %",
   villa_cost_categories: "Villa cost categories",
   villa_allocation: "Villa revenue by month",
+  villa_season_months: "Villa season months (Re-earn tab)",
 };
 
 function Input({ r }: { r: SettingRow }) {

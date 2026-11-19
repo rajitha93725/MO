@@ -1,6 +1,7 @@
 import { TRANSFERS, type MovementType } from "../types";
 import type { Account, CapitalContribution, CashMovement, DailyCost, FixedCost, FixedPayment, ISODate, OrderLine, Settings, VillaRecord } from "../types";
 import { sum } from "./money";
+import { paidAmount } from "./villa";
 
 export const CASH_FORMULAS = {
   petty:
@@ -83,12 +84,13 @@ export function accountBalance(account: Account, input: CashInputs, asOf?: ISODa
   );
   const fixedCostsPaid = monthlyPaid + oneTimePaid;
 
-  // MO Villa: received payouts come in on payout_date (check-out date when blank); villa costs go out on their date.
+  // MO Villa: money received for a booking (full or part) comes in on payout_date (check-out date when blank);
+  // villa costs go out on their date. Owner Bank / Owner Cash are the owner's own money and never match a business account.
   const villa = input.villa ?? [];
   const payoutDate = (r: VillaRecord) => r.payout_date || r.check_out;
   const villaPayouts = sum(
-    villa.filter((r) => r.record_type === "Booking" && r.payout_status === "Received" && r.received_to === account && (!asOf || payoutDate(r) <= asOf)),
-    (r) => r.net_payout,
+    villa.filter((r) => r.record_type === "Booking" && r.received_to === account && paidAmount(r) > 0 && (!asOf || payoutDate(r) <= asOf)),
+    (r) => paidAmount(r),
   );
   const villaCostsPaid = sum(
     villa.filter((r) => r.record_type === "Cost" && r.paid_from === account && (!asOf || r.date_entered <= asOf)),

@@ -92,10 +92,11 @@ describe("cafe monthly report", () => {
 
 describe("owner report (villa, combined, cash)", () => {
   const blank: VillaRecord = {
-    record_id: "", record_type: "Booking", date_entered: "2027-01-01", room_number: "Room 1", room_type: "Double", platform: "Airbnb",
+    record_id: "", record_type: "Booking", date_entered: "2027-01-01", room_number: "Tide", room_type: "Double", platform: "Airbnb",
     booking_ref: "", guest_name: "", guests: 2, check_in: "", check_out: "", nights: 0, status: "Confirmed", total_price: 0,
     commission_pct: 10, commission_amount: 0, booking_costs: 0, net_payout: 0, payout_status: "Pending", payout_date: "",
     received_to: "", cost_category: "", cost_description: "", cost_amount: 0, cost_room: "", paid_from: "", notes: "",
+  breakfast: false, commission_later: false, amount_paid: 0, closed_platforms: "", booking_id: "",
   };
   const bk = (p: Partial<VillaRecord>): VillaRecord => {
     const b = { ...blank, ...p };
@@ -106,7 +107,7 @@ describe("owner report (villa, combined, cash)", () => {
   };
   const villa = [
     bk({ record_id: "B1", check_in: "2027-01-30", check_out: "2027-02-02", total_price: 30_000 }), // 2 nights Jan, 1 Feb
-    bk({ record_id: "B2", room_number: "Room 2", check_in: "2027-01-10", check_out: "2027-01-12", total_price: 0, status: "Cancelled" }), // no cancellation fee
+    bk({ record_id: "B2", room_number: "Breeze", check_in: "2027-01-10", check_out: "2027-01-12", total_price: 0, status: "Cancelled" }), // no cancellation fee
     bk({ record_id: "B3", check_in: "2027-03-01", check_out: "2027-03-03", total_price: 8_000 }),
     { ...blank, record_id: "C1", record_type: "Cost" as const, status: "" as const, payout_status: "" as const, date_entered: "2027-01-15", cost_amount: 1_500, cost_room: "All rooms", paid_from: "Bank" as const },
   ];

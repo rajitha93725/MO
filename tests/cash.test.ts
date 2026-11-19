@@ -103,7 +103,8 @@ describe("separate cafe and villa petty cash", () => {
     record_id: "V", record_type: "Booking", date_entered: "2026-12-01", room_number: "R1", room_type: "", platform: "Direct", booking_ref: "",
     guest_name: "", guests: 2, check_in: "2026-12-01", check_out: "2026-12-03", nights: 2, status: "Confirmed", total_price: 0, commission_pct: 0,
     commission_amount: 0, booking_costs: 0, net_payout: 0, payout_status: "Received", payout_date: "2026-12-03", received_to: "Villa petty cash",
-    cost_category: "", cost_description: "", cost_amount: 0, cost_room: "", paid_from: "", notes: "", ...o,
+    cost_category: "", cost_description: "", cost_amount: 0, cost_room: "", paid_from: "", notes: "",
+    breakfast: false, commission_later: false, amount_paid: 0, closed_platforms: "", booking_id: "", ...o,
   });
   const input = {
     orders: [order({ date: "2026-12-02", qty: 1, unit_price: 10_000, unit_cost: 0, payment_method: "Cash" })],

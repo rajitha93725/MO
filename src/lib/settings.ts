@@ -25,13 +25,13 @@ export const DEFAULT_SETTING_ROWS: SettingRow[] = [
   { key: "timezone", value: "Asia/Colombo", description: "Timezone used for 'today'" },
   {
     key: "villa_rooms",
-    value: "Room 1:Double:0,Room 2:Double:0,Room 3:Double:0,Room 4:Double:0",
+    value: "Tide:Double:0,Breeze:Double:0,Nest:Double:0,Cove:Double:0",
     description: "MO Villa rooms as room_number:room_type:base_price_per_night (0 = no base price), comma separated",
   },
   {
     key: "villa_platforms",
-    value: "Airbnb:15,Booking.com:15,Agoda:18,Direct:0,Other:0",
-    description: "Booking platforms with default commission %, Name:percent, comma separated",
+    value: "Airbnb:15,Booking.com:15:later,Agoda:18,Direct:0,Other:0",
+    description: "Booking platforms with default commission %, Name:percent, comma separated. Add :later when the guest pays you and the commission is paid later (e.g. Booking.com:15:later)",
   },
   {
     key: "villa_cost_categories",
@@ -39,6 +39,7 @@ export const DEFAULT_SETTING_ROWS: SettingRow[] = [
     description: "Villa cost categories. Separate with ; when a name contains a comma",
   },
   { key: "villa_allocation", value: "nights", description: "nights = split revenue across months by nights stayed; check_in = count it all in the check-in month" },
+  { key: "villa_season_months", value: "12,1,2,3,4,5", description: "Villa season months (1-12, comma separated). The Recovery tab estimates how long it takes to earn back capital + costs using these months" },
   { key: "villa_partners", value: "Rajitha:100", description: "Villa profit split, Name:percent (must total 100). Cafe profit uses 'partners'" },
   { key: "menu_categories", value: "Brunch:B,All Day Menu:A,Beverage:D", description: "Menu categories in display order as Name:ID letter (new items get IDs like B12). The first one opens by default at breakfast" },
   { key: "receipt_name", value: "MO Cafe", description: "Receipt: name printed at the top" },
@@ -147,11 +148,19 @@ export function parseRooms(v: string): VillaRoom[] {
 }
 
 export function parsePlatforms(v: string): VillaPlatform[] {
-  return list(v).map((p) => {
+  return list(v).map((raw) => {
+    const later = /:\s*later\s*$/i.test(raw);
+    const p = later ? raw.replace(/:\s*later\s*$/i, "") : raw;
     const i = p.lastIndexOf(":");
-    if (i < 0) return { name: p, commission_pct: 0 };
-    return { name: p.slice(0, i).trim(), commission_pct: toNum(p.slice(i + 1).trim() || "0", "villa_platforms") };
+    if (i < 0) return { name: p.trim(), commission_pct: 0, commission_later: later };
+    return { name: p.slice(0, i).trim(), commission_pct: toNum(p.slice(i + 1).trim() || "0", "villa_platforms"), commission_later: later };
   });
+}
+
+export function parseSeasonMonths(v: string): number[] {
+  const months = list(v).map((m) => Math.round(toNum(m, "villa_season_months")));
+  for (const m of months) if (m < 1 || m > 12) throw new Error(`villa_season_months: ${m} is not a month (1-12)`);
+  return Array.from(new Set(months));
 }
 
 /** Category list that may contain commas inside names: split on ";" when present, else on commas outside parentheses. */
@@ -209,6 +218,7 @@ export function parseSettings(rows: SettingRow[], targets: TargetPeriod[]): Sett
     villa_cost_categories: parseCategoryList(g("villa_cost_categories")),
     villa_allocation: g("villa_allocation") === "check_in" ? "check_in" : "nights",
     villa_partners: villaPartners,
+    villa_season_months: parseSeasonMonths(g("villa_season_months")),
     // The add-on category is always there (with a free ID letter), so add-ons can be added in the Menu editor.
     menu_categories: withAddonCategory(parseMenuCategories(g("menu_categories")), g("addon_category") || "Add-ons"),
     receipt_name: g("receipt_name"),

@@ -14,7 +14,7 @@ import { DailyMealChart, ProfitPlanChart } from "@/components/Charts";
 import { MEALS, isVillaTodo } from "@/lib/types";
 import { uberDay, UBER_FORMULAS } from "@/lib/calc/uber";
 import { StorageError } from "@/components/StorageError";
-import { pendingPayouts, upcomingCheckIns, villaMonth, VILLA_FORMULAS } from "@/lib/calc/villa";
+import { amountDue, pendingPayouts, upcomingCheckIns, villaMonth, VILLA_FORMULAS } from "@/lib/calc/villa";
 import { combinedMonth, COMBINED_FORMULA } from "@/lib/calc/combined";
 
 export default async function Dashboard({ searchParams }: { searchParams: Promise<{ denied?: string }> }) {
@@ -312,8 +312,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
             </div>
           </div>
           <div className={`card stat ${pending.length ? "warn" : ""}`}>
-            <div className="label">Pending payouts <Tip text={VILLA_FORMULAS.payouts} /></div>
-            <div className="value">{rs(pending.reduce((a, b) => a + b.net_payout, 0))}</div>
+            <div className="label">Villa still to receive <Tip text={VILLA_FORMULAS.toReceive} /></div>
+            <div className="value">{rs(pending.reduce((a, b) => a + amountDue(b), 0))}</div>
             <div className="sub">{pending.length} booking{pending.length === 1 ? "" : "s"} · <Link href="/villa?view=bookings">view</Link></div>
           </div>
           <div className="card stat">

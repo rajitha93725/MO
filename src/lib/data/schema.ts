@@ -47,6 +47,7 @@ export const HEADERS: Record<TabKey, string[]> = {
     "net_payout", "payout_status", "payout_date", "received_to",
     "cost_category", "cost_description", "cost_amount", "cost_room", "paid_from",
     "notes",
+    "breakfast", "commission_later", "amount_paid", "closed_platforms", "booking_id",
   ],
   capital: ["capital_id", "date", "partner", "business", "description", "amount", "paid_into", "notes"],
   logs: ["log_id", "at", "business", "category", "action", "detail", "ref", "by_name"],
@@ -76,7 +77,7 @@ export const NUMBER_COLUMNS = new Set([
   "planned_monthly_sales", "planned_net_profit",
   "daily_target_breakfast", "daily_target_lunch", "daily_target_dinner",
   "addons_total", "discount_value", "discount_amount",
-  "guests", "nights", "total_price", "commission_pct", "commission_amount", "booking_costs", "net_payout", "cost_amount",
+  "guests", "nights", "total_price", "commission_pct", "commission_amount", "booking_costs", "net_payout", "cost_amount", "amount_paid",
 ]);
 
 /** Columns that hold text such as dates, months, times and free-form setting values. */
@@ -94,4 +95,4 @@ export const TEXT_COLUMNS: Partial<Record<TabKey, string[]>> = {
   capital: ["date"],
 };
 
-export const BOOLEAN_COLUMNS = new Set(["active", "done", "villa"]);
+export const BOOLEAN_COLUMNS = new Set(["active", "done", "villa", "breakfast", "commission_later"]);

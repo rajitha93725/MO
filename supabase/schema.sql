@@ -235,6 +235,11 @@ alter table public.mo_villa add column if not exists "cost_amount" numeric not n
 alter table public.mo_villa add column if not exists "cost_room" text not null default '';
 alter table public.mo_villa add column if not exists "paid_from" text not null default '';
 alter table public.mo_villa add column if not exists "notes" text not null default '';
+alter table public.mo_villa add column if not exists "breakfast" boolean not null default false;
+alter table public.mo_villa add column if not exists "commission_later" boolean not null default false;
+alter table public.mo_villa add column if not exists "amount_paid" numeric not null default 0;
+alter table public.mo_villa add column if not exists "closed_platforms" text not null default '';
+alter table public.mo_villa add column if not exists "booking_id" text not null default '';
 create index if not exists mo_villa_seq_idx on public.mo_villa (seq);
 alter table public.mo_villa enable row level security;
 revoke all on public.mo_villa from anon, authenticated;
