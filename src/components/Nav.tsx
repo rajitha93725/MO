@@ -29,14 +29,14 @@ export function BottomNav({ role }: { role: Role }) {
           { href: "/home", label: "Home", icon: I.home },
           { href: "/sales", label: "Sales", icon: I.sales },
           { href: "/order", label: "Order", icon: I.plus, cta: true },
-          { href: "/costs", label: "Costs", icon: I.cost },
+          { href: "/costs", label: "Daily Costs", icon: I.cost },
           { href: "/more", label: "More", icon: I.more },
         ]
       : [
           { href: "/home", label: "Home", icon: I.home },
           { href: "/sales", label: "Sales", icon: I.sales },
           { href: "/order", label: "Order", icon: I.plus, cta: true },
-          { href: "/costs", label: "Costs", icon: I.cost },
+          { href: "/costs", label: "Daily Costs", icon: I.cost },
           { href: "/menu/edit", label: "Menu", icon: I.chart },
         ];
   return (

@@ -133,7 +133,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           <div className="pair">
             <div>
               <div className={`value ${day.actualNet < 0 ? "neg" : ""}`}>{rs(day.actualNet)}</div>
-              <div className="sub">Actual · costs {rs(day.dailyCosts)}</div>
+              <div className="sub">Actual · Daily Costs {rs(day.dailyCosts)}</div>
             </div>
             <div>
               <div className={`value alt ${day.expectedNet < 0 ? "neg" : ""}`}>{rs(day.expectedNet)}</div>
@@ -181,7 +181,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               </div>
             </div>
             <div className="sub">
-              Daily costs {rs(mp.dailyCosts)} · Fixed {rs(mp.fixedCosts)}
+              Daily Costs {rs(mp.dailyCosts)} · Fixed {rs(mp.fixedCosts)}
               {mp.closed ? " · Closed month" : mp.plannedNetProfit ? (
                 <> · <span className={mp.profitVsPlan >= 0 ? "pos" : "neg"}>{mp.profitVsPlan >= 0 ? "▲" : "▼"} {rs(Math.abs(mp.profitVsPlan))} vs plan {rs(mp.plannedNetProfit)}</span></>
               ) : ""}
@@ -199,7 +199,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                 <div className="sub">Expected</div>
               </div>
             </div>
-            <div className="sub">Sales {rs(overall.sales)} · Costs {rs(overall.totalCosts)} · {overall.months} month{overall.months === 1 ? "" : "s"}</div>
+            <div className="sub">Sales {rs(overall.sales)} · Daily Costs {rs(overall.dailyCosts)} · Fixed {rs(overall.fixedCosts)} · {overall.months} month{overall.months === 1 ? "" : "s"}</div>
           </div>
           {overall.partnerShares.map((s) => (
             <div key={s.name} className="card stat">
