@@ -13,6 +13,10 @@ export const FORMULAS = {
     "Fixed costs = monthly fixed costs active this month (start_month ≤ month ≤ end_month, not a closed month) + one-time costs allocated to this month (Settings: one_time_allocation)",
   totalCosts: "Total costs = Daily costs + Fixed costs",
   netProfit: "Net profit = Sales − Total costs",
+  expectedNetProfit:
+    "Expected net profit = Sales − Food cost (menu: qty × unit_cost) − Other daily costs (all Daily costs except Settings: food_check_categories, so Uber commission, gas, packaging… count as paid) − Fixed costs. Only the food & drink buys are swapped for the menu food cost",
+  dayActualNetProfit: "Actual cafe net profit (day) = Total sales of the day − all Daily costs of the day (incl. Uber commission). Fixed costs are taken off in the monthly net profit",
+  expectedPartnerShare: "Expected partner share = Expected net profit × partner % (Settings: partners)",
   dayNetProfit: "Expected cafe net profit (day) = Total sales of the day (cafe + Uber) − Food cost of the day (qty × menu unit_cost) − Uber commission of the day. Other daily costs and fixed costs are taken off in the monthly net profit",
   netMargin: "Net margin = Net profit ÷ Sales (shown as \"-\" when Sales = 0)",
   partnerShare: "Partner share (monthly) = (Month's total sales − (Month's daily costs + Month's fixed costs)) × partner % (Settings: partners)",
@@ -32,6 +36,11 @@ export interface MonthProfit {
   fixedCosts: number;
   totalCosts: number;
   netProfit: number;
+  /** Daily costs outside the food check categories (Uber commission, gas, packaging…). */
+  otherDailyCosts: number;
+  /** Sales − menu food cost − other daily costs − fixed costs. */
+  expectedNetProfit: number;
+  expectedPartnerShares: { name: string; pct: number; amount: number }[];
   netMargin: number | null;
   partnerShares: { name: string; pct: number; amount: number }[];
   actualFoodPurchases: number;
@@ -80,6 +89,9 @@ export function monthProfit(month: MonthKey, input: ProfitInputs): MonthProfit {
   const plannedSales = closed || !target ? 0 : target.planned_monthly_sales;
   const plannedNetProfit = closed || !target ? 0 : target.planned_net_profit;
 
+  const otherDailyCosts = dailyCosts - actualFoodPurchases;
+  const expectedNetProfit = sales - foodCost - otherDailyCosts - fixedCosts;
+
   return {
     month,
     closed,
@@ -89,6 +101,9 @@ export function monthProfit(month: MonthKey, input: ProfitInputs): MonthProfit {
     fixedCosts,
     totalCosts,
     netProfit,
+    otherDailyCosts,
+    expectedNetProfit,
+    expectedPartnerShares: partnerShares(expectedNetProfit, settings),
     netMargin: ratio(netProfit, sales),
     partnerShares: partnerShares(netProfit, settings),
     actualFoodPurchases,
@@ -118,6 +133,13 @@ export function totalProfit(rows: MonthProfit[], settings: Pick<Settings, "partn
     fixedCosts: s((r) => r.fixedCosts),
     totalCosts: s((r) => r.totalCosts),
     netProfit,
+    otherDailyCosts: s((r) => r.otherDailyCosts),
+    expectedNetProfit: s((r) => r.expectedNetProfit),
+    expectedPartnerShares: settings.partners.map((p) => ({
+      name: p.name,
+      pct: p.pct,
+      amount: sum(rows, (r) => r.expectedPartnerShares.find((x) => x.name === p.name)?.amount ?? 0),
+    })),
     netMargin: ratio(netProfit, sales),
     // Sum of monthly shares (not re-split) so YTD matches the month rows exactly.
     partnerShares: settings.partners.map((p) => ({
@@ -137,6 +159,12 @@ export function totalProfit(rows: MonthProfit[], settings: Pick<Settings, "partn
 /** Month-by-month table from `from` to `to` inclusive. */
 export function profitTable(from: MonthKey, to: MonthKey, input: ProfitInputs): MonthProfit[] {
   return monthRange(from, to).map((m) => monthProfit(m, input));
+}
+
+/** Opening month (Settings: opening_month) through `month`; empty before opening. */
+export function sinceOpening(month: MonthKey, input: ProfitInputs): ProfitTotals {
+  const from = input.settings.opening_month;
+  return totalProfit(month < from ? [] : profitTable(from, month, input), input.settings);
 }
 
 /** Year-to-date: Jan of `month`'s year (or opening month, if later) through `month`. */

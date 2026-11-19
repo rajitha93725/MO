@@ -22,6 +22,7 @@ function Cells({ r }: { r: MonthProfit | ProfitTotals }) {
       <td className="num">{num(r.fixedCosts)}</td>
       <td className="num">{num(r.totalCosts)}</td>
       <td className="num"><b>{signed(r.netProfit)}</b></td>
+      <td className="num">{signed(r.expectedNetProfit)}</td>
       <td className="num">{r.netMargin === null ? "-" : pct(r.netProfit, r.sales)}</td>
       {r.partnerShares.map((s) => <td key={s.name} className="num">{num(s.amount)}</td>)}
       <td className="num">{num(r.actualFoodPurchases)}</td>
@@ -57,9 +58,9 @@ export default async function ProfitPage() {
   const [yf, yt] = ytdRange(thisMonth < from ? from : thisMonth, from);
   const combinedYtd = combinedTotals(combinedTable(yf, yt, input, villa), settings);
   const combinedToDate = combinedTotals(combined.filter((r) => r.month <= thisMonth), settings);
-  const csvHeaders = ["month", "closed", "sales", "food_cost_menu", "daily_costs", "fixed_costs", "total_costs", "net_profit", "net_margin_pct",
+  const csvHeaders = ["month", "closed", "sales", "food_cost_menu", "daily_costs", "fixed_costs", "total_costs", "net_profit", "expected_net_profit", "net_margin_pct",
     ...settings.partners.map((p) => `share_${p.name}`), "actual_food_purchases", "food_cost_difference", "planned_sales", "sales_vs_plan", "planned_net_profit", "profit_vs_plan"];
-  const csvRows = rows.map((r) => [r.month, r.closed ? "yes" : "no", r.sales, r.foodCost, r.dailyCosts, r.fixedCosts, r.totalCosts, r.netProfit,
+  const csvRows = rows.map((r) => [r.month, r.closed ? "yes" : "no", r.sales, r.foodCost, r.dailyCosts, r.fixedCosts, r.totalCosts, r.netProfit, r.expectedNetProfit,
     r.netMargin === null ? "-" : (r.netMargin * 100).toFixed(1), ...r.partnerShares.map((s) => s.amount), r.actualFoodPurchases, r.foodCostDifference,
     r.plannedSales, r.salesVsPlan, r.plannedNetProfit, r.profitVsPlan]);
 
@@ -95,6 +96,7 @@ export default async function ProfitPage() {
               <H label="Fixed costs" tip={FORMULAS.fixedCosts} />
               <H label="Total costs" tip={FORMULAS.totalCosts} />
               <H label="Net profit" tip={FORMULAS.netProfit} />
+              <H label="Expected profit" tip={FORMULAS.expectedNetProfit} />
               <H label="Margin" tip={FORMULAS.netMargin} />
               {settings.partners.map((p) => <H key={p.name} label={`${p.name} ${p.pct}%`} tip={FORMULAS.partnerShare} />)}
               <H label="Actual food & drink buys" tip={`Sum of Daily costs in: ${settings.food_check_categories.join(", ")}`} />

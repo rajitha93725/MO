@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { monthProfit, partnerShares, profitTable, totalProfit, yearToDate } from "../src/lib/calc/profit";
+import { monthProfit, partnerShares, profitTable, sinceOpening, totalProfit, yearToDate } from "../src/lib/calc/profit";
 import { fixedCostsForMonth, isMonthlyActive, oneTimeAllocation, unpaidFixedCosts } from "../src/lib/calc/fixedCosts";
 import { cost, monthly, oneTime, order, settings } from "./fixtures";
 import type { FixedPayment } from "../src/lib/types";
@@ -42,6 +42,22 @@ describe("monthProfit – core formulas", () => {
       { name: "Janith", pct: 50, amount: 175 },
     ]);
   });
+  it("expected net profit = sales − menu food cost − non-food daily costs − fixed costs", () => {
+    // 5350 − 1750 − 500 (gas) − 3000
+    expect(r.otherDailyCosts).toBe(500);
+    expect(r.expectedNetProfit).toBe(100);
+    expect(r.expectedPartnerShares.map((s) => s.amount)).toEqual([50, 50]);
+  });
+  it("since opening sums every month from opening_month, actual and expected", () => {
+    const all = sinceOpening("2027-01", input);
+    expect(all.months).toBe(2);
+    // Jan: sales 5000, food cost 500, food buys 9999 (no other daily costs), fixed 3000
+    expect(all.netProfit).toBe(350 + (5000 - 9999 - 3000));
+    expect(all.expectedNetProfit).toBe(100 + (5000 - 500 - 3000));
+    expect(all.partnerShares.reduce((a, s) => a + s.amount, 0)).toBe(all.netProfit);
+    expect(all.expectedPartnerShares.reduce((a, s) => a + s.amount, 0)).toBe(all.expectedNetProfit);
+  });
+  it("since opening is empty before the opening month", () => expect(sinceOpening("2026-11", input).months).toBe(0));
 });
 
 describe("net margin edge case", () => {

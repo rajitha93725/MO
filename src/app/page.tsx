@@ -5,7 +5,7 @@ import { repo } from "@/lib/data/repo";
 import { today } from "@/lib/today";
 import { daySummary, activeTodos, todoUrgency } from "@/lib/calc/daily";
 import { accountBalance, isPettyLow, CASH_FORMULAS } from "@/lib/calc/cash";
-import { monthProfit, profitTable, FORMULAS } from "@/lib/calc/profit";
+import { monthProfit, profitTable, sinceOpening, FORMULAS } from "@/lib/calc/profit";
 import { unpaidFixedCosts } from "@/lib/calc/fixedCosts";
 import { addMonths, daysInMonth, monthLabel, monthOf } from "@/lib/calc/dates";
 import { pct, rs } from "@/lib/calc/money";
@@ -31,11 +31,12 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const month = monthOf(t);
   const input = { orders, dailyCosts, fixedCosts, fixedPayments, settings };
 
-  // Day figures: expected net = sales − food cost − Uber commission.
+  // Day figures: expected net = sales − food cost − Uber commission; actual net = sales − all daily costs of the day.
   const dayFigures = (d: string) => {
     const s = daySummary(d, orders, settings);
     const u = uberDay(d, orders, dailyCosts);
-    return { ...s, uberSales: u.sales, uberCommission: u.commission, expectedNet: s.grossProfit - u.commission };
+    const costs = dailyCosts.filter((c) => c.date === d).reduce((a, c) => a + c.amount, 0);
+    return { ...s, uberSales: u.sales, uberCommission: u.commission, expectedNet: s.grossProfit - u.commission, dailyCosts: costs, actualNet: s.sales - costs };
   };
   const day = dayFigures(t);
   const cashIn = { orders, dailyCosts, fixedCosts, fixedPayments, movements, villa, capital };
@@ -44,6 +45,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const bank = accountBalance("Bank", cashIn);
   const low = isPettyLow(petty.balance, settings);
   const mp = monthProfit(month, input);
+  const overall = sinceOpening(month, input);
   const vm = villaMonth(month, villa, settings);
   const checkIns = upcomingCheckIns(villa, t, 7);
   const pending = pendingPayouts(villa);
@@ -56,11 +58,11 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     return o;
   });
 
-  // Every day of the month up to today that had orders, newest first.
+  // Every day of the month up to today that had orders or costs, newest first.
   const perDay = daysInMonth(month)
     .filter((d) => d <= t)
     .map((d) => dayFigures(d))
-    .filter((d) => d.orders > 0)
+    .filter((d) => d.orders > 0 || d.dailyCosts > 0)
     .reverse();
 
   const from = settings.opening_month < month ? settings.opening_month : month;
@@ -112,7 +114,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       )}
 
       <h2 className="home-section" id="cafe">☕ MO Cafe</h2>
-      <div className={`grid ${isPartner ? "cols-5" : "cols-4"}`}>
+      <div className={`grid ${isPartner ? "cols-4" : "cols-3"}`}>
         <div className="card stat">
           <div className="label">Today&apos;s sales <Tip text={FORMULAS.sales.replace("month", "day")} /></div>
           <div className="value">{rs(day.sales)}</div>
@@ -127,8 +129,17 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           </div>
         </div>
         <div className="card stat">
-          <div className="label">Expected cafe net profit · today <Tip text={FORMULAS.dayNetProfit} /></div>
-          <div className={`value ${day.expectedNet < 0 ? "neg" : ""}`}>{rs(day.expectedNet)}</div>
+          <div className="label">Cafe net profit · today <Tip text={`${FORMULAS.dayActualNetProfit}. ${FORMULAS.dayNetProfit}`} /></div>
+          <div className="pair">
+            <div>
+              <div className={`value ${day.actualNet < 0 ? "neg" : ""}`}>{rs(day.actualNet)}</div>
+              <div className="sub">Actual · costs {rs(day.dailyCosts)}</div>
+            </div>
+            <div>
+              <div className={`value alt ${day.expectedNet < 0 ? "neg" : ""}`}>{rs(day.expectedNet)}</div>
+              <div className="sub">Expected</div>
+            </div>
+          </div>
           <div className="sub">
             Food cost {rs(day.foodCost)} ({pct(day.foodCost, day.sales)}){day.uberCommission ? ` · Uber commission ${rs(day.uberCommission)}` : ""} ·{" "}
             <span className={day.foodCostPct !== null && day.foodCostPct * 100 > settings.food_cost_target_pct ? "neg" : ""}>target ≤ {settings.food_cost_target_pct}%</span>
@@ -144,15 +155,6 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </div>
         {isPartner && (
           <>
-            <div className="card stat">
-              <div className="label">Cafe net profit · {monthLabel(month)} <Tip text={`${FORMULAS.netProfit}. ${FORMULAS.vsPlan}`} /></div>
-              <div className={`value ${mp.netProfit < 0 ? "neg" : ""}`}>{rs(mp.netProfit)}</div>
-              <div className="sub">
-                {mp.closed ? "Closed month" : mp.plannedNetProfit ? (
-                  <span className={mp.profitVsPlan >= 0 ? "pos" : "neg"}>{mp.profitVsPlan >= 0 ? "▲" : "▼"} {rs(Math.abs(mp.profitVsPlan))} vs plan {rs(mp.plannedNetProfit)}</span>
-                ) : "No plan for this month"}
-              </div>
-            </div>
             <div className={`card stat ${low ? "warn" : ""}`}>
               <div className="label">Cafe petty cash <Tip text={CASH_FORMULAS.petty} /></div>
               <div className={`value ${petty.balance < 0 ? "neg" : ""}`}>{rs(petty.balance)}</div>
@@ -163,6 +165,53 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           </>
         )}
       </div>
+
+      {isPartner && (
+        <div className="grid cols-4">
+          <div className="card stat">
+            <div className="label">Cafe net profit · {monthLabel(month)} <Tip text={`Actual: ${FORMULAS.netProfit} (${FORMULAS.totalCosts}). ${FORMULAS.expectedNetProfit}`} /></div>
+            <div className="pair">
+              <div>
+                <div className={`value ${mp.netProfit < 0 ? "neg" : ""}`}>{rs(mp.netProfit)}</div>
+                <div className="sub">Actual</div>
+              </div>
+              <div>
+                <div className={`value alt ${mp.expectedNetProfit < 0 ? "neg" : ""}`}>{rs(mp.expectedNetProfit)}</div>
+                <div className="sub">Expected</div>
+              </div>
+            </div>
+            <div className="sub">
+              Daily costs {rs(mp.dailyCosts)} · Fixed {rs(mp.fixedCosts)}
+              {mp.closed ? " · Closed month" : mp.plannedNetProfit ? (
+                <> · <span className={mp.profitVsPlan >= 0 ? "pos" : "neg"}>{mp.profitVsPlan >= 0 ? "▲" : "▼"} {rs(Math.abs(mp.profitVsPlan))} vs plan {rs(mp.plannedNetProfit)}</span></>
+              ) : ""}
+            </div>
+          </div>
+          <div className="card stat">
+            <div className="label">Cafe net profit · since opening <Tip text={`From ${monthLabel(settings.opening_month)} (Settings: opening_month) to ${monthLabel(month)}. Actual: ${FORMULAS.netProfit}. ${FORMULAS.expectedNetProfit}. Capital is tracked separately and not taken off`} /></div>
+            <div className="pair">
+              <div>
+                <div className={`value ${overall.netProfit < 0 ? "neg" : ""}`}>{rs(overall.netProfit)}</div>
+                <div className="sub">Actual</div>
+              </div>
+              <div>
+                <div className={`value alt ${overall.expectedNetProfit < 0 ? "neg" : ""}`}>{rs(overall.expectedNetProfit)}</div>
+                <div className="sub">Expected</div>
+              </div>
+            </div>
+            <div className="sub">Sales {rs(overall.sales)} · Costs {rs(overall.totalCosts)} · {overall.months} month{overall.months === 1 ? "" : "s"}</div>
+          </div>
+          {overall.partnerShares.map((s) => (
+            <div key={s.name} className="card stat">
+              <div className="label">{s.name} share ({s.pct}%) · since opening <Tip text={`${FORMULAS.partnerShare}, summed from ${monthLabel(settings.opening_month)}. ${FORMULAS.expectedPartnerShare}`} /></div>
+              <div className={`value ${s.amount < 0 ? "neg" : ""}`}>{rs(s.amount)}</div>
+              <div className="sub">
+                Expected {rs(overall.expectedPartnerShares.find((x) => x.name === s.name)?.amount ?? 0)} · this month {rs(mp.partnerShares.find((x) => x.name === s.name)?.amount ?? 0)} · <Link href="/profit">details</Link>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className={`grid ${isPartner ? "md-2" : ""}`}>
         <div className="card">
@@ -197,10 +246,12 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                 <th className="num">Food cost <Tip text={FORMULAS.foodCost.replace("month", "day")} /></th><th className="num">Food cost %</th>
                 <th className="num">Uber commission <Tip text={UBER_FORMULAS.commission(settings)} /></th>
                 <th className="num">Expected net profit <Tip text={FORMULAS.dayNetProfit} /></th>
+                <th className="num">Daily costs <Tip text="All Daily costs entered for the day (incl. Uber commission)" /></th>
+                <th className="num">Actual net profit <Tip text={FORMULAS.dayActualNetProfit} /></th>
               </tr>
             </thead>
             <tbody>
-              {perDay.length === 0 && <tr><td colSpan={8} className="muted">No sales yet this month</td></tr>}
+              {perDay.length === 0 && <tr><td colSpan={10} className="muted">No sales yet this month</td></tr>}
               {perDay.map((d) => (
                 <tr key={d.date}>
                   <td>{d.date === t ? <b>{d.date} (today)</b> : d.date}</td>
@@ -211,6 +262,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                   <td className="num">{pct(d.foodCost, d.sales)}</td>
                   <td className="num">{d.uberCommission ? rs(d.uberCommission) : "-"}</td>
                   <td className={`num ${d.expectedNet < 0 ? "neg" : ""}`}>{rs(d.expectedNet)}</td>
+                  <td className="num">{rs(d.dailyCosts)}</td>
+                  <td className={`num ${d.actualNet < 0 ? "neg" : ""}`}><b>{rs(d.actualNet)}</b></td>
                 </tr>
               ))}
             </tbody>
@@ -225,6 +278,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                   <th className="num">{pct(perDay.reduce((a, d) => a + d.foodCost, 0), perDay.reduce((a, d) => a + d.sales, 0))}</th>
                   <th className="num">{rs(perDay.reduce((a, d) => a + d.uberCommission, 0))}</th>
                   <th className="num">{rs(perDay.reduce((a, d) => a + d.expectedNet, 0))}</th>
+                  <th className="num">{rs(perDay.reduce((a, d) => a + d.dailyCosts, 0))}</th>
+                  <th className="num">{rs(perDay.reduce((a, d) => a + d.actualNet, 0))}</th>
                 </tr>
               </tfoot>
             )}
