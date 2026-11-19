@@ -12,7 +12,7 @@ export function PasswordSignIn() {
         e.preventDefault();
         const f = new FormData(e.currentTarget);
         setBusy(true);
-        signIn("password", { username: String(f.get("username") ?? ""), password: String(f.get("password") ?? ""), callbackUrl: "/" });
+        signIn("password", { username: String(f.get("username") ?? ""), password: String(f.get("password") ?? ""), callbackUrl: "/order" });
       }}
     >
       <label className="field">
@@ -30,7 +30,7 @@ export function PasswordSignIn() {
 
 export function SignInButton() {
   return (
-    <button style={{ width: "100%" }} onClick={() => signIn("google", { callbackUrl: "/" })}>
+    <button style={{ width: "100%" }} onClick={() => signIn("google", { callbackUrl: "/order" })}>
       <span aria-hidden style={{ fontWeight: 800, color: "#4285F4" }}>G</span>&nbsp; Sign in with Google
     </button>
   );

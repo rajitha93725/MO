@@ -11,7 +11,7 @@ const ERRORS: Record<string, string> = {
 };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  if (authDisabled() || (await currentUser())) redirect("/");
+  if (authDisabled() || (await currentUser())) redirect("/order");
   const { error } = await searchParams;
   return (
     <div className="card stack" style={{ maxWidth: 380, margin: "40px auto", textAlign: "center" }}>

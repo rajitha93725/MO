@@ -37,7 +37,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {/* The app bar is for signed-in users only; signed-out visitors see the login page or the public menu. */}
         {user && (
         <header className="topbar">
-          <Link href="/" aria-label="Home" style={{ display: "flex" }}>
+          <Link href="/home" aria-label="Home" style={{ display: "flex" }}>
             <Logo size={38} />
           </Link>
           <div className="title">

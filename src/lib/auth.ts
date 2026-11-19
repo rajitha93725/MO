@@ -121,7 +121,7 @@ export function allowed(u: AppUser, access: Access): boolean {
 export async function requirePage(access: Access = "any"): Promise<AppUser> {
   const u = await currentUser();
   if (!u) redirect("/login");
-  if (!allowed(u, access)) redirect("/?denied=1");
+  if (!allowed(u, access)) redirect("/home?denied=1");
   return u;
 }
 

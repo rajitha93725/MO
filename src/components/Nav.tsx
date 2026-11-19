@@ -26,14 +26,14 @@ export function BottomNav({ role }: { role: Role }) {
   const items =
     role === "partner"
       ? [
-          { href: "/", label: "Home", icon: I.home },
+          { href: "/home", label: "Home", icon: I.home },
           { href: "/sales", label: "Sales", icon: I.sales },
           { href: "/order", label: "Order", icon: I.plus, cta: true },
           { href: "/costs", label: "Costs", icon: I.cost },
           { href: "/more", label: "More", icon: I.more },
         ]
       : [
-          { href: "/", label: "Home", icon: I.home },
+          { href: "/home", label: "Home", icon: I.home },
           { href: "/sales", label: "Sales", icon: I.sales },
           { href: "/order", label: "Order", icon: I.plus, cta: true },
           { href: "/costs", label: "Costs", icon: I.cost },
@@ -42,7 +42,7 @@ export function BottomNav({ role }: { role: Role }) {
   return (
     <nav className="bottomnav" aria-label="Main">
       {items.map((it) => {
-        const active = it.href === "/" ? path === "/" : path.startsWith(it.href);
+        const active = path.startsWith(it.href);
         return (
           <Link key={it.href} href={it.href} className={`${active ? "active" : ""} ${it.cta ? "cta" : ""}`}>
             {it.cta ? (
