@@ -11,6 +11,7 @@ import { cafeReport, ownerReport, type GroupRow } from "@/lib/calc/report";
 import { CsvButton, Tip } from "@/components/ui";
 import { StorageError } from "@/components/StorageError";
 import { PrintButton } from "./PrintButton";
+import { RemoveVoidButton } from "./RemoveVoidButton";
 
 const signed = (v: number) => <span className={v < 0 ? "neg" : v > 0 ? "pos" : ""}>{num(v)}</span>;
 const share = (v: number | null) => (v === null ? "-" : `${(v * 100).toFixed(1)}%`);
@@ -265,11 +266,11 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       >
         <div className="table-wrap">
           <table className="small">
-            <thead><tr><th>Date</th><th>Item</th><th className="num">Qty</th><th className="num">Amount</th><th>Authorised by</th><th>Reason</th></tr></thead>
+            <thead><tr><th>Date</th><th>Item</th><th className="num">Qty</th><th className="num">Amount</th><th>Authorised by</th><th>Reason</th><th></th></tr></thead>
             <tbody>
-              {voids.map((l) => <tr key={l.line_id}><td style={{ whiteSpace: "nowrap" }}>{l.date} {l.time}</td><td>{l.item_name}</td><td className="num">{l.qty}</td><td className="num">{num(l.line_total)}</td><td>{l.void_by}</td><td>{l.void_reason}</td></tr>)}
-              {voids.length === 0 && <tr><td colSpan={6} className="muted">No voided items this month</td></tr>}
-              {voids.length > 0 && <tr className="total"><td colSpan={3}>Total voided</td><td className="num">{num(voids.reduce((t2, l) => t2 + l.line_total, 0))}</td><td colSpan={2}></td></tr>}
+              {voids.map((l) => <tr key={l.line_id}><td style={{ whiteSpace: "nowrap" }}>{l.date} {l.time}</td><td>{l.item_name}</td><td className="num">{l.qty}</td><td className="num">{num(l.line_total)}</td><td>{l.void_by}</td><td>{l.void_reason}</td><td><RemoveVoidButton lineId={l.line_id} item={l.item_name} /></td></tr>)}
+              {voids.length === 0 && <tr><td colSpan={7} className="muted">No voided items this month</td></tr>}
+              {voids.length > 0 && <tr className="total"><td colSpan={3}>Total voided</td><td className="num">{num(voids.reduce((t2, l) => t2 + l.line_total, 0))}</td><td colSpan={3}></td></tr>}
             </tbody>
           </table>
         </div>

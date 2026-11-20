@@ -423,6 +423,23 @@ export async function deleteOrder(order_id: string): Promise<ActionResult> {
   });
 }
 
+/**
+ * Remove a voided item from the record (partners only), e.g. a wrong entry. A whole order deleted on the Sales page
+ * already takes its voided items with it; this is for voids left behind (a bill where every item was voided never
+ * shows on the Sales page). Never changes sales: voided items don't count.
+ */
+export async function deleteVoidedItem(line_id: string): Promise<ActionResult> {
+  return run(async () => {
+    await requireAction("partner");
+    const line = (await repo.orderLines()).find((l) => l.line_id === line_id);
+    if (!line) throw new Error("That voided item is already removed.");
+    if (line.status !== "Void") throw new Error("Only voided items can be removed here.");
+    await repo.remove("orders", line_id);
+    await log("MO Cafe", "Void", "Voided item removed", `${line.invoice_no || line.order_id} · ${line.item_name} × ${line.qty} · ${money(line.line_total)} · was: ${line.void_reason}`, line.order_id);
+    return "Voided item removed";
+  });
+}
+
 // ---------------- Daily costs (partners + staff) ----------------
 
 export async function saveDailyCost(form: Record<string, string>): Promise<ActionResult> {
