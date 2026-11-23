@@ -170,7 +170,7 @@ export interface PrintLayout {
  * (they go in the margins) - with the blank space added inside the receipt instead. Chrome ignores a size like
  * "80mm auto" and falls back to A4/Letter, so the length is always given in mm.
  */
-export function receiptPageCss({ widthMm, heightMm, fontPx, leftMm = 6 }: PrintLayout): string {
+export function receiptPageCss({ widthMm, heightMm, fontPx, leftMm = 11 }: PrintLayout): string {
   const m = RECEIPT_MARGIN_MM;
   return [
     `@page { size: ${widthMm}mm ${heightMm}mm; margin: 0; }`,
