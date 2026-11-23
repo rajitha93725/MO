@@ -38,7 +38,7 @@ export default async function ReceiptPage({ params, searchParams }: { params: Pr
   const o = lines[0];
   const order: ReceiptOrder = receiptFromLines(lines, (id) => menu.find((m) => m.item_id === id)?.sub_category);
   const width = settings.receipt_width_mm;
-  const paper = { widthMm: width, heightMm: settings.receipt_height_mm };
+  const paper = { widthMm: width, heightMm: settings.receipt_height_mm, fontPx: settings.receipt_font_px };
 
   return (
     <div className="stack">
@@ -50,9 +50,9 @@ export default async function ReceiptPage({ params, searchParams }: { params: Pr
         <Link href={`/sales?date=${o.date}`} className="btn">Sales</Link>
       </div>
       <div className="small muted no-print" style={{ textAlign: "center" }}>
-        Paper {width} mm × {settings.receipt_height_mm ? `${settings.receipt_height_mm} mm (label)` : "receipt length (roll)"} · change in Settings
+        Text {settings.receipt_font_px} px · paper {width} mm × {settings.receipt_height_mm ? `${settings.receipt_height_mm} mm (label)` : "receipt length (roll)"} · change in Settings
       </div>
-      <div className="receipt" style={{ width: `${width}mm` }} dangerouslySetInnerHTML={{ __html: receiptHtml(order, { ...settings, logo_url: "/logo.png" }) }} />
+      <div className="receipt" style={{ width: `${width}mm`, ["--receipt-font" as string]: `${settings.receipt_font_px}px` }} dangerouslySetInnerHTML={{ __html: receiptHtml(order, { ...settings, logo_url: "/logo.png" }) }} />
     </div>
   );
 }

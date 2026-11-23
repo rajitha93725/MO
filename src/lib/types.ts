@@ -374,6 +374,8 @@ export interface Settings {
   receipt_width_mm: number;
   /** Paper length in mm (labels); 0 = as long as the receipt (roll paper). */
   receipt_height_mm: number;
+  /** Printed receipt text size in px. */
+  receipt_font_px: number;
   uber_markup_pct: number;
   uber_commission_pct: number;
   /** Dine-in tables by area, in display order (first area blue, second green). */

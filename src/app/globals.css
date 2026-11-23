@@ -302,21 +302,21 @@ table.cal tbody.cal-group + tbody.cal-group tr:first-child td { border-top: 10px
 .receipt {
   box-sizing: border-box; align-self: center; max-width: 100%; margin: 0 auto; padding: 12px; background: #fff; color: #000;
   border: 1px dashed var(--border); border-radius: 6px;
-  font: 13px/1.35 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font: var(--receipt-font, 13px)/1.35 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 }
 .receipt table { width: 100%; border-collapse: collapse; }
 .receipt td { padding: 3px 0; vertical-align: top; border: 0; color: #000; }
 .receipt .num { text-align: right; white-space: nowrap; padding-left: 8px; }
 .receipt .r-center { text-align: center; }
-.receipt .r-title { font-size: 17px; font-weight: 700; letter-spacing: 0.04em; }
+.receipt .r-title { font-size: 1.31em; font-weight: 700; letter-spacing: 0.04em; }
 .receipt .r-rule { border-top: 1px dashed #000; margin: 6px 0; }
 .receipt .r-row { display: flex; justify-content: space-between; gap: 8px; }
-.receipt .r-total { font-weight: 700; font-size: 15px; }
-.receipt .r-small { font-size: 11px; color: #333; }
-.receipt .k-qty { font-size: 16px; font-weight: 800; width: 44px; white-space: nowrap; }
-.receipt .k-item { font-size: 16px; font-weight: 700; }
-.receipt .k-note { font-size: 14px; font-weight: 700; }
-.receipt .r-service { text-align: center; font-size: 18px; font-weight: 800; letter-spacing: 0.04em; padding: 4px 0; }
+.receipt .r-total { font-weight: 700; font-size: 1.15em; }
+.receipt .r-small { font-size: 0.85em; color: #333; }
+.receipt .k-qty { font-size: 1.23em; font-weight: 800; width: 44px; white-space: nowrap; }
+.receipt .k-item { font-size: 1.23em; font-weight: 700; }
+.receipt .k-note { font-size: 1.08em; font-weight: 700; }
+.receipt .r-service { text-align: center; font-size: 1.38em; font-weight: 800; letter-spacing: 0.04em; padding: 4px 0; }
 @media print {
   .receipt { border: 0; padding: 0; border-radius: 0; }
 }
@@ -452,9 +452,9 @@ table.cal tbody.cal-group + tbody.cal-group tr:first-child td { border-top: 10px
 /* ---------- receipt details: logo, item discounts, add-ons, notes, offer ---------- */
 .receipt .r-logo-wrap { text-align: center; margin-bottom: 4px; }
 .receipt .r-logo { width: 26mm; max-width: 45%; height: auto; display: inline-block; border-radius: 4mm; }
-.receipt tr.r-sub td { font-size: 11px; padding-top: 0; color: #222; }
-.receipt tr.k-sub td { font-size: 14px; font-weight: 700; padding-top: 0; }
-.receipt .r-offer { border: 1.5px dashed #000; padding: 5px 6px; margin: 6px 0; text-align: center; font-size: 12px; }
+.receipt tr.r-sub td { font-size: 0.85em; padding-top: 0; color: #222; }
+.receipt tr.k-sub td { font-size: 1.08em; font-weight: 700; padding-top: 0; }
+.receipt .r-offer { border: 1.5px dashed #000; padding: 5px 6px; margin: 6px 0; text-align: center; font-size: 0.92em; }
 .receipt .r-offer-title { font-weight: 800; letter-spacing: 0.04em; }
 
 /* ---------- line options, discounts, offer ---------- */

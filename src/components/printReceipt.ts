@@ -17,10 +17,10 @@ export function printReceipt(order: ReceiptOrder, settings: ReceiptSettings, kin
   const inner = w - 2 * RECEIPT_MARGIN_MM;
   // On screen the receipt is laid out off-screen at the paper width, so its length can be measured.
   const screenCss = `#bg-print { position: fixed; left: -10000px; top: 0; width: ${inner}mm; visibility: hidden; }
-    #bg-print .receipt { width: auto; max-width: none; border: 0; padding: 0; }`;
+    #bg-print .receipt { width: auto; max-width: none; border: 0; padding: 0;${settings.receipt_font_px ? ` --receipt-font: ${settings.receipt_font_px}px;` : ""} }`;
   const printCss = (h: number) => `
     @media print {
-      ${receiptPageCss(w, h)}
+      ${receiptPageCss(w, h, settings.receipt_font_px)}
       html, body { width: ${inner}mm !important; min-width: 0 !important; }
       body > *:not(#bg-print) { display: none !important; }
       body { background: #fff !important; padding: 0 !important; margin: 0 !important; }

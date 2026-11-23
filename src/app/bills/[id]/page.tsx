@@ -33,7 +33,7 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
   const sub = (itemId: string) => menu.find((m) => m.item_id === itemId)?.sub_category;
   const receiptSettings = {
     receipt_name: settings.receipt_name, receipt_address: settings.receipt_address,
-    receipt_footer: settings.receipt_footer, receipt_width_mm: settings.receipt_width_mm, receipt_height_mm: settings.receipt_height_mm, logo_url: "/logo.png",
+    receipt_footer: settings.receipt_footer, receipt_width_mm: settings.receipt_width_mm, receipt_height_mm: settings.receipt_height_mm, receipt_font_px: settings.receipt_font_px, logo_url: "/logo.png",
   };
   const receipt = receiptFromLines([...bill.lines, ...(bill.discount ? [bill.discount] : [])], sub);
 

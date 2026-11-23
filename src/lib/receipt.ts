@@ -56,6 +56,8 @@ export interface ReceiptSettings {
   receipt_width_mm: number;
   /** Paper length in mm for labels; 0 / missing = as long as the receipt (roll paper). */
   receipt_height_mm?: number;
+  /** Printed text size in px (Settings: receipt_font_px); headings scale with it. */
+  receipt_font_px?: number;
   /** Logo printed at the top (e.g. "/logo.png"). */
   logo_url?: string;
 }
@@ -150,8 +152,8 @@ export function receiptPaperHeight(settingHeightMm: number | undefined, contentH
  * @page rule with an exact paper size. Chrome ignores a size like "80mm auto", falls back to A4/Letter and shrinks
  * the receipt, so the length is always given in mm.
  */
-export function receiptPageCss(widthMm: number, heightMm: number): string {
-  return `@page { size: ${widthMm}mm ${heightMm}mm; margin: ${RECEIPT_MARGIN_MM}mm; }`;
+export function receiptPageCss(widthMm: number, heightMm: number, fontPx?: number): string {
+  return `@page { size: ${widthMm}mm ${heightMm}mm; margin: ${RECEIPT_MARGIN_MM}mm; }${fontPx ? ` .receipt { --receipt-font: ${fontPx}px; }` : ""}`;
 }
 
 /** px (CSS, 96 per inch) → mm. */

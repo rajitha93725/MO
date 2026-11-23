@@ -7,20 +7,21 @@ export interface PaperSize {
   widthMm: number;
   /** 0 = as long as the receipt (roll paper). */
   heightMm: number;
+  fontPx: number;
 }
 
 /**
  * Sets the exact paper size (width × measured receipt length, or the label height) and opens the print dialog.
  * Without an exact length Chrome picks A4/Letter and shrinks the receipt.
  */
-function printAtPaperSize({ widthMm, heightMm }: PaperSize) {
+function printAtPaperSize({ widthMm, heightMm, fontPx }: PaperSize) {
   const el = document.querySelector<HTMLElement>(".receipt");
   const inner = widthMm - 2 * RECEIPT_MARGIN_MM;
   let contentMm = 0;
   if (el) {
     // Measure at the printed width, without the on-screen border and padding.
     const old = el.getAttribute("style") ?? "";
-    el.setAttribute("style", `width:${inner}mm;padding:0;border:0`);
+    el.setAttribute("style", `width:${inner}mm;padding:0;border:0;--receipt-font:${fontPx}px`);
     contentMm = pxToMm(el.getBoundingClientRect().height);
     el.setAttribute("style", old);
   }
@@ -31,7 +32,7 @@ function printAtPaperSize({ widthMm, heightMm }: PaperSize) {
     style.id = "receipt-paper";
     document.head.appendChild(style);
   }
-  style.textContent = `@media print { ${receiptPageCss(widthMm, h)} html, body { width: ${inner}mm !important; min-width: 0 !important; margin: 0 !important; padding: 0 !important; background: #fff !important; } .receipt { width: ${inner}mm !important; max-width: none !important; } }`;
+  style.textContent = `@media print { ${receiptPageCss(widthMm, h, fontPx)} html, body { width: ${inner}mm !important; min-width: 0 !important; margin: 0 !important; padding: 0 !important; background: #fff !important; } .receipt { width: ${inner}mm !important; max-width: none !important; } }`;
   window.print();
 }
 
