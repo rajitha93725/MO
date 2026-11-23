@@ -28,12 +28,18 @@ describe("receipt", () => {
     expect(h.match(/r-center/g)).toHaveLength(1);
   });
   it("sets the paper width", () => {
-    expect(receiptPageCss(58, 120)).toBe("@page { size: 58mm 120mm; margin: 3mm; }");
+    expect(receiptPageCss(58, 120)).toContain("@page { size: 58mm 120mm; margin: 3mm; }");
+    expect(receiptPageCss(58, 120)).toContain("break-inside: avoid");
   });
   it("paper length: the label height when set, otherwise the receipt's own length + margins", () => {
     expect(receiptPaperHeight(150, 80)).toBe(150);
     expect(receiptPaperHeight(0, 100)).toBe(108);
     expect(receiptPaperHeight(undefined, 10)).toBe(40);
+  });
+  it("a long bill on roll paper: page capped, the rest goes on the next page (text not shrunk)", () => {
+    expect(receiptPaperHeight(0, 400, 150)).toBe(150);
+    expect(receiptPaperHeight(0, 100, 150)).toBe(108);
+    expect(receiptPaperHeight(120, 400, 150)).toBe(120);
   });
 });
 

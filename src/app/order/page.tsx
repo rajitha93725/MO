@@ -47,7 +47,7 @@ export default async function OrderPage({ searchParams }: { searchParams: Promis
           receipt_name: settings.receipt_name,
           receipt_address: settings.receipt_address,
           receipt_footer: settings.receipt_footer,
-          receipt_width_mm: settings.receipt_width_mm, receipt_height_mm: settings.receipt_height_mm, receipt_font_px: settings.receipt_font_px,
+          receipt_width_mm: settings.receipt_width_mm, receipt_height_mm: settings.receipt_height_mm, receipt_max_page_mm: settings.receipt_max_page_mm, receipt_font_px: settings.receipt_font_px,
           logo_url: "/logo.png",
         }}
       />

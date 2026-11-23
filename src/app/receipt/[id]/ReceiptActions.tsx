@@ -8,13 +8,15 @@ export interface PaperSize {
   /** 0 = as long as the receipt (roll paper). */
   heightMm: number;
   fontPx: number;
+  /** Longest page for roll paper (mm). */
+  maxPageMm: number;
 }
 
 /**
  * Sets the exact paper size (width × measured receipt length, or the label height) and opens the print dialog.
  * Without an exact length Chrome picks A4/Letter and shrinks the receipt.
  */
-function printAtPaperSize({ widthMm, heightMm, fontPx }: PaperSize) {
+function printAtPaperSize({ widthMm, heightMm, fontPx, maxPageMm }: PaperSize) {
   const el = document.querySelector<HTMLElement>(".receipt");
   const inner = widthMm - 2 * RECEIPT_MARGIN_MM;
   let contentMm = 0;
@@ -25,7 +27,7 @@ function printAtPaperSize({ widthMm, heightMm, fontPx }: PaperSize) {
     contentMm = pxToMm(el.getBoundingClientRect().height);
     el.setAttribute("style", old);
   }
-  const h = receiptPaperHeight(heightMm, contentMm);
+  const h = receiptPaperHeight(heightMm, contentMm, maxPageMm);
   let style = document.getElementById("receipt-paper") as HTMLStyleElement | null;
   if (!style) {
     style = document.createElement("style");

@@ -56,6 +56,8 @@ export interface ReceiptSettings {
   receipt_width_mm: number;
   /** Paper length in mm for labels; 0 / missing = as long as the receipt (roll paper). */
   receipt_height_mm?: number;
+  /** Longest page for roll paper (mm); a longer receipt continues on the next page instead of being shrunk. */
+  receipt_max_page_mm?: number;
   /** Printed text size in px (Settings: receipt_font_px); headings scale with it. */
   receipt_font_px?: number;
   /** Logo printed at the top (e.g. "/logo.png"). */
@@ -143,9 +145,12 @@ export const RECEIPT_MARGIN_MM = 3;
  * Paper length to print on: the label height from Settings (receipt_height_mm), or – when that is 0 (roll paper) –
  * the receipt's own length plus the margins, so the printer feeds exactly one receipt and no A4/Letter page.
  */
-export function receiptPaperHeight(settingHeightMm: number | undefined, contentHeightMm: number): number {
+export function receiptPaperHeight(settingHeightMm: number | undefined, contentHeightMm: number, maxPageMm?: number): number {
   if (settingHeightMm && settingHeightMm > 0) return Math.round(settingHeightMm);
-  return Math.max(40, Math.ceil(contentHeightMm + 2 * RECEIPT_MARGIN_MM + 2));
+  const fit = Math.max(40, Math.ceil(contentHeightMm + 2 * RECEIPT_MARGIN_MM + 2));
+  // Longer than the printer's paper? Keep the normal text size and let the rest run onto the next page
+  // (a page longer than the paper gets shrunk by the printer driver to fit).
+  return maxPageMm && maxPageMm > 0 ? Math.min(fit, Math.round(maxPageMm)) : fit;
 }
 
 /**
@@ -153,7 +158,9 @@ export function receiptPaperHeight(settingHeightMm: number | undefined, contentH
  * the receipt, so the length is always given in mm.
  */
 export function receiptPageCss(widthMm: number, heightMm: number, fontPx?: number): string {
-  return `@page { size: ${widthMm}mm ${heightMm}mm; margin: ${RECEIPT_MARGIN_MM}mm; }${fontPx ? ` .receipt { --receipt-font: ${fontPx}px; }` : ""}`;
+  return `@page { size: ${widthMm}mm ${heightMm}mm; margin: ${RECEIPT_MARGIN_MM}mm; }${fontPx ? ` .receipt { --receipt-font: ${fontPx}px; }` : ""}` +
+    // Never cut an item, its add-ons or a totals row in half across two pages; no shrinking to fit.
+    ` .receipt tr, .receipt .r-row, .receipt .r-offer, .receipt .r-logo-wrap { break-inside: avoid; page-break-inside: avoid; }`;
 }
 
 /** px (CSS, 96 per inch) → mm. */

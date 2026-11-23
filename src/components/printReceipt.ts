@@ -45,7 +45,7 @@ export function printReceipt(order: ReceiptOrder, settings: ReceiptSettings, kin
   Promise.race([loaded, new Promise((res) => setTimeout(res, 2000))]).then(() =>
     requestAnimationFrame(() =>
       setTimeout(() => {
-        const h = receiptPaperHeight(settings.receipt_height_mm, pxToMm(box.getBoundingClientRect().height));
+        const h = receiptPaperHeight(settings.receipt_height_mm, pxToMm(box.getBoundingClientRect().height), settings.receipt_max_page_mm);
         style.textContent = screenCss + printCss(h);
         window.print();
       }, 50),

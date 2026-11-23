@@ -19,8 +19,8 @@ export function TestPrint({ settings, today }: { settings: ReceiptSettings; toda
     <div className="card">
       <b>Printer test</b>
       <div className="small muted" style={{ margin: "4px 0 8px" }}>
-        Text {settings.receipt_font_px} px · paper {settings.receipt_width_mm} mm wide × {h ? `${h} mm (label)` : "as long as the receipt (roll)"}. Change{" "}
-        <code>receipt_font_px</code>, <code>receipt_width_mm</code> or <code>receipt_height_mm</code> above, save, then test. In the print window pick your
+        Text {settings.receipt_font_px} px · paper {settings.receipt_width_mm} mm wide × {h ? `${h} mm (label)` : `as long as the receipt, up to ${settings.receipt_max_page_mm} mm a page (roll)`}. Change{" "}
+        <code>receipt_font_px</code>, <code>receipt_width_mm</code>, <code>receipt_max_page_mm</code> or <code>receipt_height_mm</code> above, save, then test. In the print window pick your
         printer (not “Save as PDF”), Margins: None or Default, and untick “Headers and footers”.
       </div>
       <button type="button" onClick={() => printReceipt(sample, settings)}>🖨 Test print</button>
