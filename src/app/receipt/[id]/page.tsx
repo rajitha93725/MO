@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requirePage } from "@/lib/auth";
 import { repo } from "@/lib/data/repo";
-import { receiptFromLines, receiptHtml, receiptPageCss, type ReceiptOrder } from "@/lib/receipt";
+import { receiptFromLines, receiptHtml, type ReceiptOrder } from "@/lib/receipt";
 import { StorageError } from "@/components/StorageError";
 import { orderTypeOf } from "@/lib/types";
 import { AutoPrint, PrintReceiptButton } from "./ReceiptActions";
@@ -38,16 +38,19 @@ export default async function ReceiptPage({ params, searchParams }: { params: Pr
   const o = lines[0];
   const order: ReceiptOrder = receiptFromLines(lines, (id) => menu.find((m) => m.item_id === id)?.sub_category);
   const width = settings.receipt_width_mm;
+  const paper = { widthMm: width, heightMm: settings.receipt_height_mm };
 
   return (
     <div className="stack">
-      {/* Paper size for this page only (Settings: receipt_width_mm). */}
-      <style>{`${receiptPageCss(width)} @media print { .receipt { width: auto !important; max-width: none; } }`}</style>
-      {print === "1" && <AutoPrint />}
+      {/* Exact paper size is set when printing (Settings: receipt_width_mm / receipt_height_mm). */}
+      {print === "1" && <AutoPrint paper={paper} />}
       <div className="row no-print">
-        <PrintReceiptButton />
+        <PrintReceiptButton paper={paper} />
         <Link href="/order" className="btn primary">+ New order</Link>
         <Link href={`/sales?date=${o.date}`} className="btn">Sales</Link>
+      </div>
+      <div className="small muted no-print" style={{ textAlign: "center" }}>
+        Paper {width} mm × {settings.receipt_height_mm ? `${settings.receipt_height_mm} mm (label)` : "receipt length (roll)"} · change in Settings
       </div>
       <div className="receipt" style={{ width: `${width}mm` }} dangerouslySetInnerHTML={{ __html: receiptHtml(order, { ...settings, logo_url: "/logo.png" }) }} />
     </div>

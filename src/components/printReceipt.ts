@@ -1,6 +1,6 @@
 "use client";
 
-import { kitchenTicketHtml, receiptHtml, receiptPageCss, type ReceiptOrder, type ReceiptSettings } from "@/lib/receipt";
+import { RECEIPT_MARGIN_MM, kitchenTicketHtml, pxToMm, receiptHtml, receiptPageCss, receiptPaperHeight, type ReceiptOrder, type ReceiptSettings } from "@/lib/receipt";
 
 /**
  * Print a receipt without leaving the current screen.
@@ -13,15 +13,20 @@ export function printReceipt(order: ReceiptOrder, settings: ReceiptSettings, kin
 
   const style = document.createElement("style");
   style.id = "bg-print-style";
-  style.textContent = `
-    #bg-print { display: none; }
+  const w = settings.receipt_width_mm;
+  const inner = w - 2 * RECEIPT_MARGIN_MM;
+  // On screen the receipt is laid out off-screen at the paper width, so its length can be measured.
+  const screenCss = `#bg-print { position: fixed; left: -10000px; top: 0; width: ${inner}mm; visibility: hidden; }
+    #bg-print .receipt { width: auto; max-width: none; border: 0; padding: 0; }`;
+  const printCss = (h: number) => `
     @media print {
-      ${receiptPageCss(settings.receipt_width_mm)}
+      ${receiptPageCss(w, h)}
+      html, body { width: ${inner}mm !important; min-width: 0 !important; }
       body > *:not(#bg-print) { display: none !important; }
       body { background: #fff !important; padding: 0 !important; margin: 0 !important; }
-      #bg-print { display: block !important; }
-      #bg-print .receipt { width: auto; max-width: none; border: 0; padding: 0; }
+      #bg-print { position: static !important; left: auto; width: ${inner}mm; visibility: visible; display: block !important; }
     }`;
+  style.textContent = screenCss;
   const box = document.createElement("div");
   box.id = "bg-print";
   box.innerHTML = `<div class="receipt">${kind === "receipt" ? receiptHtml(order, settings) : kitchenTicketHtml(order, kind === "kitchen-addon")}</div>`;
@@ -38,6 +43,12 @@ export function printReceipt(order: ReceiptOrder, settings: ReceiptSettings, kin
   const imgs = Array.from(box.querySelectorAll("img"));
   const loaded = Promise.all(imgs.map((img) => (img.complete ? Promise.resolve() : new Promise<void>((res) => { img.onload = img.onerror = () => res(); }))));
   Promise.race([loaded, new Promise((res) => setTimeout(res, 2000))]).then(() =>
-    requestAnimationFrame(() => setTimeout(() => window.print(), 50)),
+    requestAnimationFrame(() =>
+      setTimeout(() => {
+        const h = receiptPaperHeight(settings.receipt_height_mm, pxToMm(box.getBoundingClientRect().height));
+        style.textContent = screenCss + printCss(h);
+        window.print();
+      }, 50),
+    ),
   );
 }

@@ -54,6 +54,8 @@ export interface ReceiptSettings {
   receipt_address: string;
   receipt_footer: string;
   receipt_width_mm: number;
+  /** Paper length in mm for labels; 0 / missing = as long as the receipt (roll paper). */
+  receipt_height_mm?: number;
   /** Logo printed at the top (e.g. "/logo.png"). */
   logo_url?: string;
 }
@@ -132,10 +134,28 @@ export function receiptItemName(itemName: string, subCategory?: string): string 
   return subCategory && subCategory !== itemName ? `${subCategory} · ${itemName}` : itemName;
 }
 
-/** @page rule for the receipt paper width. */
-export function receiptPageCss(widthMm: number): string {
-  return `@page { size: ${widthMm}mm auto; margin: 3mm; }`;
+/** Blank space around the receipt on the paper (mm). */
+export const RECEIPT_MARGIN_MM = 3;
+
+/**
+ * Paper length to print on: the label height from Settings (receipt_height_mm), or – when that is 0 (roll paper) –
+ * the receipt's own length plus the margins, so the printer feeds exactly one receipt and no A4/Letter page.
+ */
+export function receiptPaperHeight(settingHeightMm: number | undefined, contentHeightMm: number): number {
+  if (settingHeightMm && settingHeightMm > 0) return Math.round(settingHeightMm);
+  return Math.max(40, Math.ceil(contentHeightMm + 2 * RECEIPT_MARGIN_MM + 2));
 }
+
+/**
+ * @page rule with an exact paper size. Chrome ignores a size like "80mm auto", falls back to A4/Letter and shrinks
+ * the receipt, so the length is always given in mm.
+ */
+export function receiptPageCss(widthMm: number, heightMm: number): string {
+  return `@page { size: ${widthMm}mm ${heightMm}mm; margin: ${RECEIPT_MARGIN_MM}mm; }`;
+}
+
+/** px (CSS, 96 per inch) → mm. */
+export const pxToMm = (px: number) => (px * 25.4) / 96;
 
 /**
  * Receipt data from an order's lines (voided lines are left out). The bill-discount line becomes `bill_discount`;
