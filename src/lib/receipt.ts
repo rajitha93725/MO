@@ -58,6 +58,8 @@ export interface ReceiptSettings {
   receipt_height_mm?: number;
   /** Longest page for roll paper (mm); a longer receipt continues on the next page instead of being shrunk. */
   receipt_max_page_mm?: number;
+  /** Blank space on the left (mm). */
+  receipt_left_mm?: number;
   /** Printed text size in px (Settings: receipt_font_px); headings scale with it. */
   receipt_font_px?: number;
   /** Logo printed at the top (e.g. "/logo.png"). */
@@ -114,6 +116,7 @@ export function receiptHtml(o: ReceiptOrder, s: ReceiptSettings): string {
     `<div class="r-rule"></div>`,
     o.offer_text ? `<div class="r-offer"><div class="r-offer-title">🎁 NEXT-DAY OFFER</div><div>${esc(o.offer_text)}</div></div>` : "",
     s.receipt_footer ? `<div class="r-center">${esc(s.receipt_footer)}</div>` : "",
+    `<div class="r-center r-small r-credit">${RECEIPT_CREDIT.map((l) => `<div>${esc(l)}</div>`).join("")}</div>`,
   ].join("");
 }
 
@@ -138,29 +141,46 @@ export function receiptItemName(itemName: string, subCategory?: string): string 
   return subCategory && subCategory !== itemName ? `${subCategory} · ${itemName}` : itemName;
 }
 
-/** Blank space around the receipt on the paper (mm). */
+/** Blank space inside the paper edge, top / right / bottom (mm). The left side is a setting (receipt_left_mm). */
 export const RECEIPT_MARGIN_MM = 3;
 
+/** Printed at the bottom of every receipt, centred. */
+export const RECEIPT_CREDIT = ["System powered by Garlic Collective", "Contact 0772274477"];
+
 /**
- * Paper length to print on: the label height from Settings (receipt_height_mm), or – when that is 0 (roll paper) –
- * the receipt's own length plus the margins, so the printer feeds exactly one receipt and no A4/Letter page.
+ * Page length: the label height (receipt_height_mm) or, for roll paper, receipt_max_page_mm - always the same,
+ * whatever the bill's length, so the printer never scales a page and the text is always the same size.
+ * A longer bill continues on the next page.
  */
-export function receiptPaperHeight(settingHeightMm: number | undefined, contentHeightMm: number, maxPageMm?: number): number {
+export function receiptPaperHeight(settingHeightMm: number | undefined, maxPageMm: number | undefined): number {
   if (settingHeightMm && settingHeightMm > 0) return Math.round(settingHeightMm);
-  const fit = Math.max(40, Math.ceil(contentHeightMm + 2 * RECEIPT_MARGIN_MM + 2));
-  // Longer than the printer's paper? Keep the normal text size and let the rest run onto the next page
-  // (a page longer than the paper gets shrunk by the printer driver to fit).
-  return maxPageMm && maxPageMm > 0 ? Math.min(fit, Math.round(maxPageMm)) : fit;
+  return maxPageMm && maxPageMm > 0 ? Math.round(maxPageMm) : 150;
+}
+
+export interface PrintLayout {
+  widthMm: number;
+  heightMm: number;
+  fontPx?: number;
+  /** Space on the left (mm), for printers that cut off the left edge. */
+  leftMm?: number;
 }
 
 /**
- * @page rule with an exact paper size. Chrome ignores a size like "80mm auto", falls back to A4/Letter and shrinks
- * the receipt, so the length is always given in mm.
+ * Print CSS for a receipt: exact paper size and no page margins - so Chrome prints no link / date / page number
+ * (they go in the margins) - with the blank space added inside the receipt instead. Chrome ignores a size like
+ * "80mm auto" and falls back to A4/Letter, so the length is always given in mm.
  */
-export function receiptPageCss(widthMm: number, heightMm: number, fontPx?: number): string {
-  return `@page { size: ${widthMm}mm ${heightMm}mm; margin: ${RECEIPT_MARGIN_MM}mm; }${fontPx ? ` .receipt { --receipt-font: ${fontPx}px; }` : ""}` +
-    // Never cut an item, its add-ons or a totals row in half across two pages; no shrinking to fit.
-    ` .receipt tr, .receipt .r-row, .receipt .r-offer, .receipt .r-logo-wrap { break-inside: avoid; page-break-inside: avoid; }`;
+export function receiptPageCss({ widthMm, heightMm, fontPx, leftMm = 6 }: PrintLayout): string {
+  const m = RECEIPT_MARGIN_MM;
+  return [
+    `@page { size: ${widthMm}mm ${heightMm}mm; margin: 0; }`,
+    `html, body { width: ${widthMm}mm !important; min-width: 0 !important; margin: 0 !important; padding: 0 !important; background: #fff !important; }`,
+    `.receipt { box-sizing: border-box !important; width: ${widthMm}mm !important; max-width: none !important; margin: 0 !important; border: 0 !important; border-radius: 0 !important;` +
+      ` padding: ${m}mm ${m}mm ${m}mm ${leftMm}mm !important; -webkit-box-decoration-break: clone; box-decoration-break: clone;${fontPx ? ` --receipt-font: ${fontPx}px;` : ""} }`,
+    `.receipt td, .receipt span, .receipt div { overflow-wrap: anywhere; }`,
+    // Never cut an item, its add-ons or a totals row in half across two pages.
+    `.receipt tr, .receipt .r-row, .receipt .r-offer, .receipt .r-logo-wrap, .receipt .r-credit { break-inside: avoid; page-break-inside: avoid; }`,
+  ].join(" ");
 }
 
 /** px (CSS, 96 per inch) → mm. */

@@ -304,7 +304,7 @@ table.cal tbody.cal-group + tbody.cal-group tr:first-child td { border-top: 10px
   border: 1px dashed var(--border); border-radius: 6px;
   font: var(--receipt-font, 13px)/1.35 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 }
-.receipt table { width: 100%; border-collapse: collapse; }
+.receipt table { width: 100%; border-collapse: collapse; font-size: inherit; }
 .receipt td { padding: 3px 0; vertical-align: top; border: 0; color: #000; }
 .receipt .num { text-align: right; white-space: nowrap; padding-left: 8px; }
 .receipt .r-center { text-align: center; }

@@ -376,6 +376,8 @@ export interface Settings {
   receipt_height_mm: number;
   /** Longest page for roll paper in mm; longer receipts continue on the next page. */
   receipt_max_page_mm: number;
+  /** Blank space on the left of the receipt (mm). */
+  receipt_left_mm: number;
   /** Printed receipt text size in px. */
   receipt_font_px: number;
   uber_markup_pct: number;

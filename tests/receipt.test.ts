@@ -25,21 +25,23 @@ describe("receipt", () => {
   it("leaves out empty address, note and footer", () => {
     const h = receiptHtml({ ...order, notes: "" }, { ...settings, receipt_address: "", receipt_footer: "" });
     expect(h).not.toContain("Note:");
-    expect(h.match(/r-center/g)).toHaveLength(1);
+    expect(h.match(/r-center/g)).toHaveLength(2); // the name + the credit lines
   });
   it("sets the paper width", () => {
-    expect(receiptPageCss(58, 120)).toContain("@page { size: 58mm 120mm; margin: 3mm; }");
-    expect(receiptPageCss(58, 120)).toContain("break-inside: avoid");
+    const css = receiptPageCss({ widthMm: 58, heightMm: 120, leftMm: 8 });
+    expect(css).toContain("@page { size: 58mm 120mm; margin: 0; }");
+    expect(css).toContain("padding: 3mm 3mm 3mm 8mm");
+    expect(css).toContain("break-inside: avoid");
   });
-  it("paper length: the label height when set, otherwise the receipt's own length + margins", () => {
-    expect(receiptPaperHeight(150, 80)).toBe(150);
-    expect(receiptPaperHeight(0, 100)).toBe(108);
-    expect(receiptPaperHeight(undefined, 10)).toBe(40);
+  it("page length is the same for every bill: label height, else the roll page length", () => {
+    expect(receiptPaperHeight(150, 200)).toBe(150);
+    expect(receiptPaperHeight(0, 200)).toBe(200);
+    expect(receiptPaperHeight(undefined, undefined)).toBe(150);
   });
-  it("a long bill on roll paper: page capped, the rest goes on the next page (text not shrunk)", () => {
-    expect(receiptPaperHeight(0, 400, 150)).toBe(150);
-    expect(receiptPaperHeight(0, 100, 150)).toBe(108);
-    expect(receiptPaperHeight(120, 400, 150)).toBe(120);
+  it("credit lines at the bottom of every receipt", () => {
+    const h = receiptHtml({ order_id: "X", date: "2026-11-24", time: "12:00", meal: "Lunch", payment_method: "Cash", notes: "", lines: [] }, settings);
+    expect(h).toContain("System powered by Garlic Collective");
+    expect(h).toContain("Contact 0772274477");
   });
 });
 

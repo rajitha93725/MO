@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { RECEIPT_MARGIN_MM, pxToMm, receiptPageCss, receiptPaperHeight } from "@/lib/receipt";
+import { receiptPageCss, receiptPaperHeight } from "@/lib/receipt";
 
 export interface PaperSize {
   widthMm: number;
@@ -10,31 +10,18 @@ export interface PaperSize {
   fontPx: number;
   /** Longest page for roll paper (mm). */
   maxPageMm: number;
+  leftMm: number;
 }
 
-/**
- * Sets the exact paper size (width × measured receipt length, or the label height) and opens the print dialog.
- * Without an exact length Chrome picks A4/Letter and shrinks the receipt.
- */
-function printAtPaperSize({ widthMm, heightMm, fontPx, maxPageMm }: PaperSize) {
-  const el = document.querySelector<HTMLElement>(".receipt");
-  const inner = widthMm - 2 * RECEIPT_MARGIN_MM;
-  let contentMm = 0;
-  if (el) {
-    // Measure at the printed width, without the on-screen border and padding.
-    const old = el.getAttribute("style") ?? "";
-    el.setAttribute("style", `width:${inner}mm;padding:0;border:0;--receipt-font:${fontPx}px`);
-    contentMm = pxToMm(el.getBoundingClientRect().height);
-    el.setAttribute("style", old);
-  }
-  const h = receiptPaperHeight(heightMm, contentMm, maxPageMm);
+/** Sets the paper size (same page length for every bill, so the text size never changes) and opens the print dialog. */
+function printAtPaperSize({ widthMm, heightMm, fontPx, maxPageMm, leftMm }: PaperSize) {
   let style = document.getElementById("receipt-paper") as HTMLStyleElement | null;
   if (!style) {
     style = document.createElement("style");
     style.id = "receipt-paper";
     document.head.appendChild(style);
   }
-  style.textContent = `@media print { ${receiptPageCss(widthMm, h, fontPx)} html, body { width: ${inner}mm !important; min-width: 0 !important; margin: 0 !important; padding: 0 !important; background: #fff !important; } .receipt { width: ${inner}mm !important; max-width: none !important; } }`;
+  style.textContent = `@media print { ${receiptPageCss({ widthMm, heightMm: receiptPaperHeight(heightMm, maxPageMm), fontPx, leftMm })} }`;
   window.print();
 }
 
