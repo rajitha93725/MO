@@ -220,7 +220,8 @@ export function OrderEntry({
           <Link href="/bills" className="small" style={{ fontWeight: 700 }}>🧾 Open bills ({openBills.length})</Link>
           {openBills.map((b) => (
             <Link key={b.order_id} role="listitem" href={`/bills/${encodeURIComponent(b.order_id)}`} className="bill-chip">
-              {b.label} · {rs(b.total)} · <OpenFor minutes={b.minutes} />
+              <span className="bill-chip-name">{b.label}</span>
+              <span className="bill-chip-meta"><span className="num">{rs(b.total)}</span> <OpenFor minutes={b.minutes} /></span>
             </Link>
           ))}
         </div>
@@ -253,7 +254,7 @@ export function OrderEntry({
                     onClick={() => (busy[t] ? router.push(`/bills/${encodeURIComponent(busy[t])}`) : (setTable(t), setPickTable(false)))}>
                     {t.slice(a.name.length).trim() || t}
                     {busy[t] && (ob ? (
-                      <span className="busy-dot"><span>{rs(ob.total)}</span><OpenFor minutes={ob.minutes} /></span>
+                      <span className="busy-dot"><span className="num"><span className="cur">Rs </span>{Math.round(ob.total).toLocaleString("en-US")}</span><OpenFor minutes={ob.minutes} /></span>
                     ) : <span className="busy-dot">open</span>)}
                   </button>
                   );

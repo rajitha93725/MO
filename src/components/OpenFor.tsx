@@ -13,5 +13,5 @@ export function OpenFor({ minutes }: { minutes: number }) {
     return () => clearInterval(id);
   }, [minutes]);
   const m = minutes + extra;
-  return <span title={`Open for ${durationLabel(m)}`} className={m >= 90 ? "open-long" : undefined}>⏱ {durationLabel(m)}</span>;
+  return <span title={`Open for ${durationLabel(m)}`} className={`open-for${m >= 90 ? " open-long" : ""}`}><span className="ico" aria-hidden>⏱ </span>{durationLabel(m)}</span>;
 }

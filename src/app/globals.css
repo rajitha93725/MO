@@ -442,7 +442,33 @@ table.cal tbody.cal-group + tbody.cal-group tr:first-child td { border-top: 10px
 .table-chip { position: relative; flex-direction: column; gap: 0; line-height: 1.05; }
 .table-chip.busy { background-image: repeating-linear-gradient(135deg, transparent 0 6px, rgba(0,0,0,.07) 6px 8px); }
 .busy-dot { font-size: 0.62rem; font-weight: 800; display: flex; flex-direction: column; align-items: center; line-height: 1.15; }
+.open-for { white-space: nowrap; }
 .open-long { color: var(--bad); }
+.bill-chip { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.bill-chip-meta { display: inline-flex; gap: 6px; align-items: center; }
+.bill-chip-meta::before { content: "·"; }
+/* Phones (iPhone 15/16 Pro ≈ 393–402px): bigger tap targets, nothing cut off. */
+@media (max-width: 480px) {
+  /* Area name above its tables, so each table button gets the full width. */
+  .table-area { flex-direction: column; align-items: stretch; gap: 4px; }
+  .area-name { width: auto; }
+  .table-row { flex-wrap: wrap; }
+  .table-chip { min-width: 56px; min-height: 52px; padding: 4px 2px; }
+  .table-chip.busy { min-height: 60px; }
+  .busy-dot { font-size: 0.7rem; gap: 1px; }
+  .busy-dot .cur, .busy-dot .ico { display: none; }
+  /* Open bills: swipe sideways; each chip is two short lines. */
+  .open-bills { margin: 0 -16px; padding: 2px 16px 6px; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .open-bills::-webkit-scrollbar { display: none; }
+  .open-bills > a:first-child { flex: none; white-space: nowrap; }
+  .bill-chip { flex-direction: column; align-items: flex-start; gap: 1px; padding: 7px 12px; border-radius: 14px; min-height: 44px; justify-content: center; scroll-snap-align: start; }
+  .bill-chip-name { font-size: 0.85rem; }
+  .bill-chip-meta { font-size: 0.78rem; font-weight: 600; }
+  .bill-chip-meta::before { content: none; }
+  /* Open bills page: amount stays on one line, details wrap. */
+  .bill-row-head { flex-wrap: wrap; gap: 2px 8px; }
+  .bill-row-head .num { white-space: nowrap; }
+}
 .uber-btn { display: flex; justify-content: center; margin-top: 8px; background: #000; color: #fff; border-color: #000; white-space: nowrap; }
 .open-bills-banner { border-color: var(--warn); background: var(--warn-soft); }
 .add-to { border-color: var(--warn); background: var(--warn-soft); display: grid; gap: 4px; }
