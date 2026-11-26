@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { billLabel, busyTables, groupBills, nextLineNo, openBills } from "../src/lib/calc/bills";
+import { billLabel, busyTables, durationLabel, groupBills, minutesOpen, nextLineNo, openBills } from "../src/lib/calc/bills";
 import { isPaidLine, type OrderLine } from "../src/lib/types";
 import { order } from "./fixtures";
 
@@ -49,5 +49,16 @@ describe("invoice numbers", () => {
   it("goes past 999 without breaking", async () => {
     const { nextInvoiceNo } = await import("../src/lib/calc/bills");
     expect(nextInvoiceNo("2026-11-18", [{ invoice_no: "261118_999" }])).toBe("261118_1000");
+  });
+});
+
+describe("time at the table", () => {
+  it("counts minutes since the bill opened, across midnight, never negative", () => {
+    expect(minutesOpen({ date: "2027-01-05", time: "12:10" }, "2027-01-05", "12:35")).toBe(25);
+    expect(minutesOpen({ date: "2027-01-05", time: "23:50" }, "2027-01-06", "00:20")).toBe(30);
+    expect(minutesOpen({ date: "2027-01-05", time: "12:10" }, "2027-01-05", "12:00")).toBe(0);
+  });
+  it("shows a short duration", () => {
+    expect([durationLabel(8), durationLabel(65), durationLabel(1570)]).toEqual(["8m", "1h 05m", "26h 10m"]);
   });
 });

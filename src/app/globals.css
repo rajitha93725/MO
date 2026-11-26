@@ -441,7 +441,8 @@ table.cal tbody.cal-group + tbody.cal-group tr:first-child td { border-top: 10px
 .bill-chip { white-space: nowrap; padding: 7px 12px; border-radius: 999px; background: var(--warn-soft); color: var(--warn); font-weight: 700; font-size: 0.85rem; text-decoration: none; border: 1px solid var(--warn); }
 .table-chip { position: relative; flex-direction: column; gap: 0; line-height: 1.05; }
 .table-chip.busy { background-image: repeating-linear-gradient(135deg, transparent 0 6px, rgba(0,0,0,.07) 6px 8px); }
-.busy-dot { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px; }
+.busy-dot { font-size: 0.62rem; font-weight: 800; display: flex; flex-direction: column; align-items: center; line-height: 1.15; }
+.open-long { color: var(--bad); }
 .uber-btn { display: flex; justify-content: center; margin-top: 8px; background: #000; color: #fff; border-color: #000; white-space: nowrap; }
 .open-bills-banner { border-color: var(--warn); background: var(--warn-soft); }
 .add-to { border-color: var(--warn); background: var(--warn-soft); display: grid; gap: 4px; }

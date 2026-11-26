@@ -4,7 +4,7 @@ import { nowTime, today } from "@/lib/today";
 import { mealForTime } from "@/lib/calc/meal";
 import { StorageError } from "@/components/StorageError";
 import { OrderEntry, type BillSummary } from "./OrderEntry";
-import { billLabel, busyTables, openBills } from "@/lib/calc/bills";
+import { billLabel, busyTables, minutesOpen, openBills } from "@/lib/calc/bills";
 
 export default async function OrderPage({ searchParams }: { searchParams: Promise<{ channel?: string; bill?: string }> }) {
   await requirePage("any");
@@ -12,14 +12,15 @@ export default async function OrderPage({ searchParams }: { searchParams: Promis
   try {
     const [menu, settings, lines] = await Promise.all([repo.menu(), repo.settings(), repo.orderLines()]);
     const open = openBills(lines);
+    const t = today(settings);
+    const now = nowTime(settings);
     const summary = (b: (typeof open)[number]): BillSummary => ({
-      order_id: b.order_id, label: billLabel(b), total: b.total, items: b.items,
+      order_id: b.order_id, label: billLabel(b), total: b.total, items: b.items, minutes: minutesOpen(b, t, now),
       lines: b.lines.map((l) => ({ name: l.item_name, qty: l.qty })),
     });
     const adding = billId ? open.find((b) => b.order_id === billId) : undefined;
-    const t = today(settings);
     // The meal is logged from the time (same rule as when saving); it only picks the first menu tab here.
-    const meal = mealForTime(nowTime(settings));
+    const meal = mealForTime(now);
     // Add-ons (Extra cheese, …) are picked on an item, not shown as dishes.
     const isAddon = (c: string) => c.toLowerCase() === settings.addon_category.toLowerCase();
     const categories = settings.menu_categories.map((c) => c.name).filter((c) => !isAddon(c));

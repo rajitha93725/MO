@@ -89,6 +89,23 @@ export function busyTables(bills: Bill[]): Record<string, string> {
   return out;
 }
 
+/** Whole minutes since the bill was opened (date + HH:MM), given the cafe's today and now. Never negative. */
+export function minutesOpen(b: Pick<Bill, "date" | "time">, today: string, now: string): number {
+  const at = (d: string, t: string) => {
+    const [y, m, day] = d.split("-").map(Number);
+    const [h, min] = t.split(":").map(Number);
+    return Date.UTC(y, (m || 1) - 1, day || 1, h || 0, min || 0);
+  };
+  const diff = Math.round((at(today, now) - at(b.date, b.time)) / 60000);
+  return Number.isFinite(diff) && diff > 0 ? diff : 0;
+}
+
+/** Short duration, e.g. "8m", "1h 05m", "26h 10m". */
+export function durationLabel(minutes: number): string {
+  const m = Math.max(0, Math.floor(minutes));
+  return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`;
+}
+
 /** Next line number for an order (line ids are <order_id>-<n>). */
 export function nextLineNo(lines: OrderLine[], order_id: string): number {
   const ns = lines.filter((l) => l.order_id === order_id).map((l) => Number(l.line_id.slice(order_id.length + 1)) || 0);

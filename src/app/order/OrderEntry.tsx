@@ -9,6 +9,7 @@ import { ORDER_TYPES, ORDER_TYPE_ICON, PAYMENT_METHODS, type DiningArea, type Me
 import { uberCommission, uberPrice } from "@/lib/calc/uber";
 import { discountAmount, discountLabel, discountProblem, linePrice, type DiscountType } from "@/lib/calc/pricing";
 import { printReceipt } from "@/components/printReceipt";
+import { OpenFor } from "@/components/OpenFor";
 import type { ReceiptOrder, ReceiptSettings } from "@/lib/receipt";
 
 const rs = (n: number) => `Rs ${Math.round(n).toLocaleString("en-US")}`;
@@ -21,6 +22,8 @@ export interface BillSummary {
   label: string;
   total: number;
   items: number;
+  /** Minutes since the bill was opened (when the page loaded). */
+  minutes: number;
   lines: { name: string; qty: number }[];
 }
 
@@ -217,7 +220,7 @@ export function OrderEntry({
           <Link href="/bills" className="small" style={{ fontWeight: 700 }}>🧾 Open bills ({openBills.length})</Link>
           {openBills.map((b) => (
             <Link key={b.order_id} role="listitem" href={`/bills/${encodeURIComponent(b.order_id)}`} className="bill-chip">
-              {b.label} · {rs(b.total)}
+              {b.label} · {rs(b.total)} · <OpenFor minutes={b.minutes} />
             </Link>
           ))}
         </div>
@@ -242,14 +245,19 @@ export function OrderEntry({
             <div key={a.name} className="table-area">
               <span className={`area-name area-${i}`}>{a.name}</span>
               <div className="table-row">
-                {a.tables.map((t) => (
+                {a.tables.map((t) => {
+                  const ob = busy[t] ? openBills.find((b) => b.order_id === busy[t]) : undefined;
+                  return (
                   <button key={t} type="button" className={`table-chip area-${i} ${table === t ? "on" : ""} ${busy[t] ? "busy" : ""}`} aria-pressed={table === t}
-                    aria-label={busy[t] ? `${t} – has an open bill, open it` : t}
+                    aria-label={busy[t] ? `${t} – open bill${ob ? ` ${rs(ob.total)}` : ""}, open it` : t}
                     onClick={() => (busy[t] ? router.push(`/bills/${encodeURIComponent(busy[t])}`) : (setTable(t), setPickTable(false)))}>
                     {t.slice(a.name.length).trim() || t}
-                    {busy[t] && <span className="busy-dot">open</span>}
+                    {busy[t] && (ob ? (
+                      <span className="busy-dot"><span>{rs(ob.total)}</span><OpenFor minutes={ob.minutes} /></span>
+                    ) : <span className="busy-dot">open</span>)}
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}
